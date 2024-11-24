@@ -1,31 +1,31 @@
-import React, { useState, useRef } from 'react';
-import { Layout, Button, Input, Space, Typography, Steps, Statistic, Progress, Table, Col, Row } from 'antd';
+import { Button, Col, Input, Layout, Row, Steps, Table, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
-const { Header, Content, Footer } = Layout;
-const { Title, Text } = Typography;
+const { Content } = Layout;
+const { Title } = Typography;
 
 const TrackingPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stepsCurrent, setStepsCurrent] = useState(0);
-  const [progress, setProgress] = useState(0);
+  // const [progress, setProgress] = useState(0);
 
   const inputRef = useRef(null);
 
   const handleSearch = () => {
     // Simulate API call
     setTimeout(() => {
-      setProgress(50);
+      // setProgress(50);
       setStepsCurrent(1);
     }, 500);
   };
 
-  const handleNextStep = () => {
-    setStepsCurrent((prev) => Math.min(prev + 1, 4));
-  };
+  // const handleNextStep = () => {
+  //   setStepsCurrent((prev) => Math.min(prev + 1, 4));
+  // };
 
-  const handlePrevStep = () => {
-    setStepsCurrent((prev) => Math.max(prev - 1, 0));
-  };
+  // const handlePrevStep = () => {
+  //   setStepsCurrent((prev) => Math.max(prev - 1, 0));
+  // };
 
   const [data, setData] = useState([
     {
@@ -49,6 +49,30 @@ const TrackingPage = () => {
         status: 'In Transit',
     },
 ]);
+useEffect(()=>{
+  setData([
+    {
+        key: '1',
+        trackingId: '#RQ7487',
+        deliver: 'Wade Warren',
+        shippedDate: '22 June 2024',
+        country: 'United States',
+        weight: '2.8kg',
+        price: '$24.05',
+        status: 'On the Way',
+    },
+    {
+        key: '2',
+        trackingId: '#RQ7488',
+        deliver: 'Kristin Watson',
+        shippedDate: '21 June 2024',
+        country: 'India',
+        weight: '3.4kg',
+        price: '$32.02',
+        status: 'In Transit',
+    },
+]);
+})
   return (
     <div  style={{ background:"white" }} >
     

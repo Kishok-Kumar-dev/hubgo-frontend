@@ -4,7 +4,6 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import MainLayout from './layouts/MainLayout';
 import Dashboard from './pages/Dashboard';
-import Orders from './pages/Orders';
 import Settings from './pages/Settings';
 import Driver from './pages/Driver';
 import Shipping from './pages/Shipping';

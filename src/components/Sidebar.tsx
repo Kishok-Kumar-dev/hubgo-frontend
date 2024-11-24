@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { BellOutlined, SearchOutlined } from '@ant-design/icons';
-import { Avatar, Input, Layout, Menu , Row, Col} from 'antd';
+import { BellOutlined } from '@ant-design/icons';
+import { Avatar, Layout, Menu } from 'antd';
 import { Link } from 'react-router-dom';
 
 const { Header } = Layout;

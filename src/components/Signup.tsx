@@ -7,6 +7,7 @@ const { Title } = Typography;
 const Signup: React.FC = () => {
     const onFinish = (values: any) => {
         // Simulating API call
+        console.log(values);
         setTimeout(() => {
             if (Math.random() > 0.5) {
                 notification.success({

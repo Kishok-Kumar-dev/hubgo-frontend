@@ -1,5 +1,4 @@
 To Run the app
-
 nvm install in local machine 
 node v20.15.1
 

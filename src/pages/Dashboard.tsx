@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { Card, Col, Input, Row, Statistic, Table, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { Card, Col, Input, Row, Statistic, Table } from 'antd';
+import React, { useEffect, useState } from 'react';
 
-const { Title } = Typography;
+// const { Title } = Typography;
 
 const Dashboard: React.FC = () => {
     const [searchText, setSearchText] = useState('');
@@ -31,6 +31,30 @@ const Dashboard: React.FC = () => {
     const filteredData = data.filter((item: any) =>
         item.trackingId.toLowerCase().includes(searchText.toLowerCase())
     );
+    useEffect(()=>{
+        setData([
+            {
+                key: '1',
+                trackingId: '#RQ7487',
+                deliver: 'Wade Warren',
+                shippedDate: '22 June 2024',
+                country: 'United States',
+                weight: '2.8kg',
+                price: '$24.05',
+                status: 'On the Way',
+            },
+            {
+                key: '2',
+                trackingId: '#RQ7488',
+                deliver: 'Kristin Watson',
+                shippedDate: '21 June 2024',
+                country: 'India',
+                weight: '3.4kg',
+                price: '$32.02',
+                status: 'In Transit',
+            },
+        ]);
+    });
 
 
     const columns = [

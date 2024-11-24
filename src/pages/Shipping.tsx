@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Form, Input, Radio, Button, Table, Card } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Button, Card, Form, Input, Radio, Table } from 'antd';
+import { useEffect, useState } from 'react';
 
 const BookingForm = () => {
   const [form] = Form.useForm();
-  const [tableData, setTableData] = useState()<any>;
   const [data, setData] = useState([
     {
         key: '1',
@@ -27,20 +25,42 @@ const BookingForm = () => {
         status: 'In Transit',
     },
 ]);
-  const [idCounter, setIdCounter] = useState(1);
   useEffect(()=>{
+    setData([
+      {
+          key: '1',
+          trackingId: '#RQ7487',
+          deliver: 'Wade Warren',
+          shippedDate: '22 June 2024',
+          country: 'United States',
+          weight: '2.8kg',
+          price: '$24.05',
+          status: 'On the Way',
+      },
+      {
+          key: '2',
+          trackingId: '#RQ7488',
+          deliver: 'Kristin Watson',
+          shippedDate: '21 June 2024',
+          country: 'India',
+          weight: '3.4kg',
+          price: '$32.02',
+          status: 'In Transit',
+      },
+  ]);
   })
 
-  const onFinish = (values) => {
-    const newData = {
-      key: idCounter,
-      id: idCounter,
-      name: values.name,
-      label: values.label,
-      address: `${values.address}, ${values.pincode}`,
-    };
-    setTableData([...tableData, newData]);
-    setIdCounter(idCounter + 1);
+  const onFinish = (values:any) => {
+    // const newData = {
+    //   key: idCounter,
+    //   id: idCounter,
+    //   name: values.name,
+    //   label: values.label,
+    //   address: `${values.address}, ${values.pincode}`,
+    // };
+     console.log(values);
+    // setTableData([...tableData, newData]);
+    // setIdCounter(idCounter + 1);
     form.resetFields(); // Reset form after submission
   };
 
