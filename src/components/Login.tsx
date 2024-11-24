@@ -1,13 +1,17 @@
 import React from 'react';
 import { Form, Input, Button, Typography, Row, Col, Divider, } from 'antd';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 
 const { Title } = Typography;
 
 const Login: React.FC = () => {
+    const navigate = useNavigate();
+
     const onFinish = (values: any) => {
         console.log('Success:', values);
+        navigate('/dashboard');
     };
 
     return (
