@@ -29,13 +29,7 @@ const Login: React.FC = () => {
                         <Button type="primary" htmlType="submit" block>Login</Button>
                     </Form.Item>
                 </Form>
-                <Divider ></Divider>
-                <Row>
-                    <Col span={5}></Col>
-                <Col span={5}><Link to="/signup">Register </Link></Col>|
-                <Col span={1}/>
-                <Col> Forgot Password</Col>
-            </Row>
+               
             </div>
            
         </div>
