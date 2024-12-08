@@ -3,7 +3,7 @@ import { Layout, Menu, Avatar, Dropdown } from 'antd';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Package, Home, Search, Settings, LogOut, User } from 'lucide-react';
 import { BellOutlined } from '@ant-design/icons';
-import {Homepage} from '../../homepage/homepage';
+import {Homepage} from '../../home/homepage';
 import hubgoIcon from './hubgo.png'
 const { Header, Sider, Content } = Layout;
 

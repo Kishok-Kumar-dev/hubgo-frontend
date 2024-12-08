@@ -8,7 +8,7 @@ import TrackParcel from './pages/TrackParcel';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import Homepage from './homepage/homepage';
+import Homepage from './home/homepage';
 
 function App() {
   return (
