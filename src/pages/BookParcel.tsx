@@ -29,12 +29,9 @@ const BookParcel: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-medium mb-4">Parcel Details</h3>
-              <Form.Item name={['parcel', 'productName']} label="Product Name" rules={[{ required: true }]}>
+
+              <Form.Item name="waybillNo" label="Waybill Number" rules={[{ required: true }]}>
                 <Input />
-              </Form.Item>
-              
-              <Form.Item name={['parcel', 'productWeight']} label="Weight (kg)" rules={[{ required: true }]}>
-                <InputNumber min={0.1} step={0.1} style={{ width: '100%' }} />
               </Form.Item>
 
               <Form.Item name={['parcel', 'productType']} label="Product Type" rules={[{ required: true }]}>
@@ -45,7 +42,6 @@ const BookParcel: React.FC = () => {
                   <Option value="other">Other</Option>
                 </Select>
               </Form.Item>
-
               <Form.Item name={['parcel', 'productSize']} label="Size" rules={[{ required: true }]}>
                 <Select>
                   <Option value="small">Small</Option>
@@ -53,6 +49,17 @@ const BookParcel: React.FC = () => {
                   <Option value="large">Large</Option>
                 </Select>
               </Form.Item>
+              <Form.Item name={['parcel', 'Quantity']} label="Quantity" rules={[{ required: true }]}>
+                <InputNumber min={0.1} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+              
+              <Form.Item name={['parcel', 'productWeight']} label="Weight (kg)" rules={[{ required: true }]}>
+                <InputNumber min={0.1} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+
+            
+
+             
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -68,6 +75,9 @@ const BookParcel: React.FC = () => {
               <Form.Item name={['contact', 'senderMobile']} label="Sender Mobile" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
+              <Form.Item name="pincode" label="Pincode" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
 
               <Form.Item name={['contact', 'deliveryAddress']} label="Delivery Address" rules={[{ required: true }]}>
                 <Input.TextArea rows={3} />
@@ -76,9 +86,7 @@ const BookParcel: React.FC = () => {
 
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-medium mb-4">Transport Details</h3>
-              <Form.Item name="waybillNo" label="Waybill Number" rules={[{ required: true }]}>
-                <Input />
-              </Form.Item>
+
 
               <Form.Item name="paymentMethod" label="Payment Method" rules={[{ required: true }]}>
                 <Radio.Group>

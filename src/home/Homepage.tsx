@@ -10,6 +10,8 @@ import Auto from './autopng.png'
 import hubgocarousel from './hubgocarousel.png';
 import {Link as RouterLink }from 'react-router-dom';
 import { GiftOutlined, RocketOutlined, ClockCircleOutlined, SafetyCertificateOutlined, DollarOutlined, PhoneOutlined, CarOutlined, SmileOutlined } from '@ant-design/icons';
+import { getData, postData } from '../service/AppService';
+
 const features = [
   {
     icon: <ClockCircleOutlined className="text-4xl text-blue-600" />,
@@ -61,6 +63,19 @@ const handleSearch = (value:any) => {
 };
 const onFinish= (value:any)=>{
   console.log(value);
+}
+const onEnquiryFinish=(value:any)=>{
+ console.log(value);
+
+  getData('/api/inquiries').then((res)=>{
+    console.log(res);
+
+  })
+  postData('/api/inquiries', value).then((res)=>{
+    console.log(res);
+
+  })
+
 }
 const styles = {
   container: {
@@ -189,8 +204,30 @@ export default function Homepage() {
 
         {isMobileView() && isSignUp &&
           <div >
-            <Signup />
-
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
+            <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
+                <Title level={3} style={{ textAlign: 'center' }}>Signup</Title>
+                <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
+        
+                    <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
+                        <Input placeholder="Enter your name" />
+                    </Form.Item>
+                    <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
+                        <Input placeholder="Enter your email" type='email' />
+                    </Form.Item>
+                    <Form.Item name="contactName" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!',}]}>
+                        <Input
+                            prefix={<PhoneOutlined />}
+                            placeholder="Enter your phone number"
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" block>Register</Button>
+                    </Form.Item>
+                </Form>
+            </div>
+        </div>
 
           </div>}
         {isMobileView() && isLogin && <div>
@@ -218,7 +255,33 @@ export default function Homepage() {
               {isLogin ? (
                 <Login />
               ) : (
-                <Signup />
+                <div >
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
+                <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
+                    <Title level={3} style={{ textAlign: 'center' }}>Signup</Title>
+                    <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
+            
+                        <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
+                            <Input placeholder="Enter your name" />
+                        </Form.Item>
+                        <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
+                            <Input placeholder="Enter your email" type='email' />
+                        </Form.Item>
+                        <Form.Item name="contactName" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!',}]}>
+                            <Input
+                                prefix={<PhoneOutlined />}
+                                placeholder="Enter your phone number"
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit" block>Register</Button>
+                        </Form.Item>
+                    </Form>
+                </div>
+            </div>
+    
+              </div>
               )}
             </div>
           </div>
@@ -267,14 +330,7 @@ export default function Homepage() {
               Experience hassle-free parcel delivery from bus terminal to your doorstep.
               Join thousands of satisfied customers today!
             </Paragraph>
-            <Button
-              type="default"
-              size="large"
-              icon={<RocketOutlined />}
-              className="bg-white hover:bg-gray-100"
-            >
-              Book Your First Delivery
-            </Button>
+
           </div>
         </div>
       </Layout.Content>
