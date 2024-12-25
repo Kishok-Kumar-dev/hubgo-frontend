@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Homepage from './home/Homepage';
+import Distance from './pages/AddressDistanceCalculator';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
               <Route path="book" element={<BookParcel />} />
               <Route path="track" element={<TrackParcel />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="ola" element={<Distance />} />
             </Route>
 
           </Routes>
