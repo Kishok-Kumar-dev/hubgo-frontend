@@ -16,6 +16,7 @@ const MainLayout: React.FC = () => {
     { key: '/dashboard', icon: <Home size={20} />, label: 'Home' },
     { key: '/dashboard/book', icon: <Package size={20} />, label: 'Book Parcel' },
     { key: '/dashboard/track', icon: <Search size={20} />, label: 'Track Parcel' },
+    { key: '/dashboard/ola', icon: <Search size={20} />, label: 'ola Parcel' },
     // { key: '/settings', icon: <Settings size={20} />, label: 'Settings' },
   ];
 
