@@ -44,6 +44,7 @@ const AddressDistanceCalculator: React.FC = () => {
                 api_key: "tIs2LqWp0fl4yzOrORmeJcxy2y63Ya8ybWR3Yd4k",
             },
             headers: {
+                "Origin": "https://hubgo.netlify.app",
                 "X-Request-Id": "UNIQUE_REQUEST_ID",
             },
         });
