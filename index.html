@@ -2,6 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coming Soon</title>
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: white;
+        font-family: Arial, sans-serif;
+      }
+      img {
+        width: 100%;
+        height: auto;
+        max-width: 90%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      @media (min-width: 768px) {
+        img {
+          max-width: 70%;
+        }
+      }
+      @media (min-width: 1024px) {
+        img {
+          max-width: 50%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <img src="src\components\Layout\Coming Soon Page.png" alt="Coming Soon" />
+  </body>
+</html>
+
+
+<!-- <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hubgo</title>
@@ -10,4 +50,4 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
-</html>
+</html> -->
