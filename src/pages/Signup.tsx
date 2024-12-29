@@ -26,7 +26,7 @@ const Signup: React.FC = () => {
     return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
             <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
-                <Title level={3} style={{ textAlign: 'center' }}>Signup</Title>
+                <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
                 <Form name="signup" onFinish={onFinish} layout="vertical">
         
                     <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>

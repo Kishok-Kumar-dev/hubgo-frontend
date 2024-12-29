@@ -16,7 +16,6 @@ const MainLayout: React.FC = () => {
     { key: '/dashboard', icon: <Home size={20} />, label: 'Home' },
     { key: '/dashboard/book', icon: <Package size={20} />, label: 'Book Parcel' },
     { key: '/dashboard/track', icon: <Search size={20} />, label: 'Track Parcel' },
-    { key: '/dashboard/ola', icon: <Search size={20} />, label: 'ola Parcel' },
     // { key: '/settings', icon: <Settings size={20} />, label: 'Settings' },
   ];
 
@@ -79,7 +78,7 @@ const MainLayout: React.FC = () => {
             onClick={({ key }) => navigate(key)}
           />
         </Sider> */}
-        <Layout style={{ padding: '24px' }}>
+        <Layout style={{ padding: '0px' }}>
           <Content className="bg-white p-6 rounded-lg min-h-[280px]">
             <Outlet />
           </Content>

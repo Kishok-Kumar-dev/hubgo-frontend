@@ -1,5 +1,5 @@
 import { Header } from 'antd/es/layout/layout'
-import { Layout, Menu, Button, Typography, Row, Col, Card, Steps, Space, Input, Form, Divider } from 'antd';
+import { Layout, Menu, Button, Typography, Row, Col, Card, Steps, Space, Input, Form, Divider, notification } from 'antd';
 import React, { useState } from 'react'
 const { Title, Paragraph, Text, Link } = Typography;
 const { Footer: AntFooter } = Layout;
@@ -66,13 +66,10 @@ const onFinish= (value:any)=>{
 }
 const onEnquiryFinish=(value:any)=>{
  console.log(value);
-
-  getData('/api/inquiries').then((res)=>{
-    console.log(res);
-
-  })
   postData('/api/inquiries', value).then((res)=>{
     console.log(res);
+
+    notification.success({  message: 'Registration successful!',  description: 'HubGo Team will contact you soon.'});
 
   })
 
@@ -206,7 +203,7 @@ export default function Homepage() {
           <div >
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
             <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
-                <Title level={3} style={{ textAlign: 'center' }}>Signup</Title>
+                <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
                 <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
         
                     <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
@@ -258,7 +255,7 @@ export default function Homepage() {
                 <div >
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
                 <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
-                    <Title level={3} style={{ textAlign: 'center' }}>Signup</Title>
+                    <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
                     <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
             
                         <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>

@@ -1,3 +1,4 @@
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConfigProvider, App as AntApp } from 'antd';
@@ -9,7 +10,8 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Homepage from './home/Homepage';
-import Distance from './pages/AddressDistanceCalculator';
+import OlaIntegration from './pages/OLAIntegeration';
+import ProtectedRoute from './ProtectedRoute';
 
 function App() {
   return (
@@ -23,15 +25,30 @@ function App() {
       <AntApp>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Homepage/>}/>
-            <Route path="/dashboard" element={<MainLayout />}>
-              <Route index element={<Home />} />
-              <Route path="book" element={<BookParcel />} />
-              <Route path="track" element={<TrackParcel />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="ola" element={<Distance />} />
-            </Route>
+            <Route path="/" element={<Homepage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
 
+            {/* Protected Route for dashboard pages */}
+            <Route path="/dashboard" element={<MainLayout />}>
+              <Route
+                path="book"
+                element={<ProtectedRoute element={<BookParcel />} />}
+              />
+              <Route
+                path="track"
+                element={<ProtectedRoute element={<TrackParcel />} />}
+              />
+              <Route
+                path="settings"
+                element={<ProtectedRoute element={<Settings />} />}
+              />
+              <Route
+                path="ola"
+                element={<ProtectedRoute element={<OlaIntegration />} />}
+              />
+              <Route index element={<ProtectedRoute element={<Home />} />} /> {/* Default route */}
+            </Route>
           </Routes>
         </BrowserRouter>
       </AntApp>
