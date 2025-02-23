@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState,useEffect } from 'react';
 import { Layout, Menu, Avatar, Dropdown } from 'antd';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { Package, Home, Search, Settings, LogOut, User } from 'lucide-react';
-import {
-  BellOutlined,
-  SettingTwoTone,
-  DeploymentUnitOutlined,
-} from '@ant-design/icons';
-import { Homepage } from '../../home/homepage';
-import hubgoIcon from './hubgo.png';
+import { BellOutlined, SettingTwoTone , DeploymentUnitOutlined} from '@ant-design/icons';
+import {Homepage} from '../../home/homepage';
+import hubgoIcon from './hubgo.png'
 import { logoutUser } from '../../service/AppService';
 const { Header, Sider, Content } = Layout;
 
@@ -19,88 +15,87 @@ const MainLayout: React.FC = () => {
 
   useEffect(() => {
     const menuItem = [
-      { key: '/dashboard', icon: <Home size={20} />, label: 'Home' },
+      { key: '/dashboard', icon: <Home size={20} />, label: 'Home' }
     ];
 
     const res = localStorage.getItem('user');
     let userJson = JSON.parse(res || '{}');
-    if (userJson && userJson.roles === 'ADMIN') {
+    let transport =['TRANSPORT', 'BOOKING_AGENT', 'TRANSPORT_HUB']
+    let userRoleValue=userJson?.roles;
+    if ( userRoleValue === 'ADMIN') {
       menuItem.push({
         key: '/dashboard/booking',
         icon: <Package size={20} />,
         label: 'Book Parcel',
       });
-      menuItem.push({
-        key: '/dashboard/track',
-        icon: <Search size={20} />,
-        label: 'Track Parcel',
-      });
+      menuItem.push(   { key: '/dashboard/trackorder', icon: <Search size={20} />, label: 'TrackOrder' },);
+
       menuItem.push({
         key: '/dashboard/settings',
         icon: <SettingTwoTone size={20} />,
         label: 'Settings',
       });
+
       menuItem.push({
-        key: '/dashboard/operations',
-        icon: <DeploymentUnitOutlined size={20} />,
-        label: 'Operations',
+        key: '/dashboard/pricesettings',
+        icon: <SettingTwoTone size={20} />,
+        label: 'Price Setting',
       });
-    } else if (userJson && userJson.roles === 'TRANSPORT') {
-      menuItem.push({
-        key: '/dashboard/booking',
-        icon: <Package size={20} />,
-        label: 'Bookings',
-      });
-      menuItem.push({
-        key: '/dashboard/track',
-        icon: <Search size={20} />,
-        label: 'Track Parcel',
-      });
-      menuItem.push({
-        key: '/dashboard/operations',
-        icon: <DeploymentUnitOutlined size={20} />,
-        label: 'Operations',
-      });
-    } else if (userJson && userJson.roles === 'DRIVER') {
+    } else if (userRoleValue && transport.includes(userRoleValue) ) {
       menuItem.push({
         key: '/dashboard/booking',
         icon: <Package size={20} />,
         label: 'Bookings',
       });
-      menuItem.push({
-        key: '/dashboard/track',
-        icon: <Search size={20} />,
-        label: 'Track Parcel',
-      });
-      menuItem.push({
-        key: '/dashboard/operations',
-        icon: <DeploymentUnitOutlined size={20} />,
-        label: 'Operations',
-      });
+      menuItem.push(   { key: '/dashboard/trackorder', icon: <Search size={20} />, label: 'TrackOrder' },);
+
+      // menuItem.push({
+      //   key: '/dashboard/track',
+      //   icon: <Search size={20} />,
+      //   label: 'Track Parcel',
+      // });
+      // menuItem.push({
+      //   key: '/dashboard/operations',
+      //   icon: <DeploymentUnitOutlined size={20} />,
+      //   label: 'Operations',
+      // });
+    } else if (userRoleValue && [ 'DRIVER', 'BIKE_CAPTAIN'].includes(userRoleValue)) {
+      // menuItem.push({
+      //   key: '/dashboard/booking',
+      //   icon: <Package size={20} />,
+      //   label: 'Bookings',
+      // });
+      menuItem.push(   { key: '/dashboard/trackorder', icon: <Search size={20} />, label: 'TrackOrder' },);
+
+      // menuItem.push({
+      //   key: '/dashboard/operations',
+      //   icon: <DeploymentUnitOutlined size={20} />,
+      //   label: 'Operations',
+      // });
     }
     setMenuItems(menuItem);
   }, []);
 
   const userMenuItems = [
-    {
-      key: 'profile',
-      label: 'Profile',
-      icon: <User size={16} />,
-    },
+    // {
+    //   key: 'profile',
+    //   label: 'Profile',
+    //   icon: <User size={12} />,
+    // },
     {
       key: 'logout',
       label: 'Logout',
       icon: (
         <LogOut
           size={16}
-          onClick={() => {
-            console.log('Logging out');
-            localStorage.removeItem('jwtToken');
-            navigate('/', { replace: true });
-          }}
         />
       ),
       danger: true,
+      onClick: () => {
+        console.log('Logging out');
+        localStorage.removeItem('jwtToken');
+        navigate('/', { replace: true });
+      },
     },
   ];
 
@@ -135,7 +130,9 @@ const MainLayout: React.FC = () => {
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
           <Avatar
             style={{ backgroundColor: '#1677ff', cursor: 'pointer' }}
-          ></Avatar>
+          >
+            <User size={18} />
+          </Avatar>
         </Dropdown>
       </Header>
 

@@ -1,0 +1,2631 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { MapPin, Navigation, AlertCircle } from 'lucide-react';
+
+interface Location {
+  lat: number;
+  lng: number;
+}
+
+interface Address {
+  formatted: string;
+  location: Location;
+  components?: {
+    street?: string;
+    locality?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+}
+
+export default function AddressAutocomplete() {
+  const addressRef = useRef<HTMLInputElement>(null);
+  const [address, setAddress] = useState<Address | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiLoaded, setApiLoaded] = useState(false);
+
+  useEffect(() => {
+    const initializeAutocomplete = () => {
+      if (!window.google?.maps?.places) {
+        setError('Google Maps API is not properly loaded. Please check your API key and enabled services.');
+        return;
+      }
+      
+      setApiLoaded(true);
+
+      if (addressRef.current) {
+        try {
+          const autocomplete = new google.maps.places.Autocomplete(addressRef.current, {
+            componentRestrictions: { country: 'IN' }, // Restrict to India
+            fields: ['formatted_address', 'geometry', 'address_components'],
+            types: ['geocode', 'establishment'] // Include both addresses and establishments
+          });
+
+          autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            
+            if (place.geometry && place.geometry.location) {
+              const addressComponents: Address['components'] = {};
+              
+              // Parse address components
+              place.address_components?.forEach(component => {
+                const type = component.types[0];
+                if (type === 'street_number' || type === 'route') {
+                  addressComponents.street = addressComponents.street 
+                    ? `${addressComponents.street} ${component.long_name}`
+                    : component.long_name;
+                }
+                if (type === 'sublocality_level_1') addressComponents.locality = component.long_name;
+                if (type === 'locality') addressComponents.city = component.long_name;
+                if (type === 'administrative_area_level_1') addressComponents.state = component.long_name;
+                if (type === 'postal_code') addressComponents.pincode = component.long_name;
+              });
+
+              setAddress({
+                formatted: place.formatted_address || '',
+                location: {
+                  lat: place.geometry.location.lat(),
+                  lng: place.geometry.location.lng()
+                },
+                components: addressComponents
+              });
+              setError(null);
+            }
+          });
+        } catch (err) {
+          setError('Failed to initialize address autocomplete. Please check your API configuration.');
+        }
+      }
+    };
+
+    // Try to initialize immediately if Google Maps is already loaded
+    if (window.google?.maps?.places) {
+      initializeAutocomplete();
+    }
+
+    // Also set up a listener for when the API loads
+    const checkGoogleMapsInterval = setInterval(() => {
+      if (window.google?.maps?.places) {
+        initializeAutocomplete();
+        clearInterval(checkGoogleMapsInterval);
+      }
+    }, 100);
+
+    // Cleanup
+    return () => {
+      clearInterval(checkGoogleMapsInterval);
+    };
+  }, []);
+
+  const getCurrentLocation = () => {
+    if (!apiLoaded) {
+      setError('Google Maps API is not available. Please check your configuration.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      setLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=AIzaSyDDk6OlltVqeQ4H59ej6s0AU0NI3aeVF4U&region=in`
+          );
+          const data = await response.json();
+
+          if (data.error_message) {
+            throw new Error(data.error_message);
+          }
+
+          if (data.results[0]) {
+            const addressComponents: Address['components'] = {};
+            
+            // Parse address components
+            data.results[0].address_components.forEach((component: any) => {
+              const type = component.types[0];
+              if (type === 'street_number' || type === 'route') {
+                addressComponents.street = addressComponents.street 
+                  ? `${addressComponents.street} ${component.long_name}`
+                  : component.long_name;
+              }
+              if (type === 'sublocality_level_1') addressComponents.locality = component.long_name;
+              if (type === 'locality') addressComponents.city = component.long_name;
+              if (type === 'administrative_area_level_1') addressComponents.state = component.long_name;
+              if (type === 'postal_code') addressComponents.pincode = component.long_name;
+            });
+
+            setAddress({
+              formatted: data.results[0].formatted_address,
+              location: {
+                lat: latitude,
+                lng: longitude
+              },
+              components: addressComponents
+            });
+            if (addressRef.current) {
+              addressRef.current.value = data.results[0].formatted_address;
+            }
+          }
+        } catch (err) {
+          setError('Failed to get address from coordinates. Please check your API configuration.');
+        } finally {
+          setLoading(false);
+        }
+      },
+      (err) => {
+        setError('Failed to get your location');
+        setLoading(false);
+      }
+    );
+  };
+
+  if (!apiLoaded) {
+    return (
+      <div className="w-full max-w-md mx-auto p-4">
+        <div className="flex flex-col gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <span className="text-red-700">
+              Google Maps API is not available. Please ensure you have:
+            </span>
+          </div>
+          <ul className="list-disc ml-5 text-red-700">
+            <li>Enabled the Places API in Google Cloud Console</li>
+            <li>Enabled the Maps JavaScript API</li>
+            <li>Enabled the Geocoding API</li>
+            <li>Activated your API key</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-md mx-auto p-4">
+      <div className="relative">
+        <div className="flex items-center border-2 border-gray-300 rounded-lg focus-within:border-blue-500">
+         
+          <input
+            ref={addressRef}
+            type="text"
+            placeholder="Enter delivery address in India"
+            className="w-full px-3 py-2 outline-none"
+          />
+
+        </div>
+        
+        {error && (
+          <div className="mt-2 flex items-center gap-2 text-red-500 text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {address && (
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-semibold text-gray-700">Selected Location:</h3>
+            <p className="text-gray-600 mt-1">{address.formatted}</p>
+            {address.components && (
+              <div className="mt-2 text-sm text-gray-600">
+                {address.components.street && <p>Street: {address.components.street}</p>}
+                {address.components.locality && <p>Locality: {address.components.locality}</p>}
+                {address.components.city && <p>City: {address.components.city}</p>}
+                {address.components.state && <p>State: {address.components.state}</p>}
+                {address.components.pincode && <p>PIN Code: {address.components.pincode}</p>}
+              </div>
+            )}
+            <p className="text-sm text-gray-500 mt-1">
+              Coordinates: {address.location.lat.toFixed(6)}, {address.location.lng.toFixed(6)}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+import React, { useState } from "react";
+import axios from "axios";
+import { Input, Button, message } from "antd";
+import {OlaMapsSDK} from "ola-maps-node-sdk";
+import { Routing } from "ola-maps";
+let routingClient;
+
+
+const AddressDistanceCalculator: React.FC = () => {
+    const [address1, setAddress1] = useState("");
+    const [address2, setAddress2] = useState("");
+    const [distance, setDistance] = useState<string | null>(null);
+
+
+
+    // Function to get coordinates for a given address
+    const getCoordinates = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+        try {
+            const response = await axios.get("https://api.olamaps.io/places/v1/geocode", {
+                params: {
+                    address,
+                    api_key: "tIs2LqWp0fl4yzOrORmeJcxy2y63Ya8ybWR3Yd4k", // Replace with your Ola Maps API Key
+                },
+            });
+
+            if (response.data && response.data.geocodingResults) {
+                const { lat, lng } = response.data.geocodingResults[0].geometry.location;
+                return { lat, lng };
+            }
+        } catch (error) {
+            console.error("Error fetching coordinates from Ola Maps:", error);
+        }
+        return null;
+    };
+
+    // Function to calculate route distance using Ola Maps Routing API
+    const calculateRouteDistance = async (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) => {
+        try {
+
+            const options = {
+                clientId:"58cc9752-8409-4a2f-8cda-c6a6974fcc03",
+                clientSecret:"a8V6Ha3lRQsrPiTB92j6N8wXYwUWvLWc"
+            }
+            const ola_map = new OlaMapsSDK(options);
+            ola_map.Routing.directions({
+                lat:origin.lat,
+                long: origin.lng
+            }, {
+                lat:destination.lat,
+                long: destination.lng
+            }).then(res=>console.log("OLA maps api "+res)
+        
+        ).catch(err=>console.log(err))
+            // const response = await axios.get("https://api.olamaps.io/routing/v1/directions", {
+            //     params: {
+            //         origin: `${origin.lat},${origin.lng}`,
+            //         destination: `${destination.lat},${destination.lng}`,
+            //         mode: "driving", // Use driving mode for car routes
+            //         alternatives: false,
+            //         steps: true,
+            //         overview: "full",
+            //         language: "en",
+            //         traffic_metadata: false,
+            //         api_key: 'tIs2LqWp0fl4yzOrORmeJcxy2y63Ya8ybWR3Yd4k', // Replace with your Ola Maps API Key from environment variables
+            //     },
+            //     headers: {
+            //         "access-control-allow-origin":"http://localhost:5173/",
+            //         "X-Request-Id": "UNIQUE_REQUEST_ID",
+            //     },
+            // });
+    
+            // // Ensure the response is valid and contains the route data
+            // if (response.data && response.data.routes && response.data.routes.length > 0) {
+            //     const route = response.data.routes[0];
+            //     const distance = route.legs && route.legs[0]?.distance?.text; // Ensure distance exists
+    
+            //     if (distance) {
+            //         return distance;
+            //     } else {
+            //         throw new Error("Distance data is missing.");
+            //     }
+            // } else {
+            //     throw new Error("Route calculation failed. No valid routes found.");
+            // }
+
+
+         
+        } catch (error: any) {
+            console.error("Error calculating route distance with Ola Maps:", error);
+            message.error(error?.message || "Failed to calculate route distance. Please try again.");
+        }
+        return null;
+    };
+
+    const handleCalculateDistance = async () => {
+        if (!address1 || !address2) {
+            message.warning("Please enter both addresses!");
+            return;
+        }
+
+        const coord1 = await getCoordinates(address1);
+        const coord2 = await getCoordinates(address2);
+
+        if (coord1 && coord2) {
+            const routeDistance = await calculateRouteDistance(coord1, coord2);
+            if (routeDistance) {
+                setDistance(`Route distance: ${routeDistance}`);
+            } else {
+                setDistance("Unable to calculate route. Please try again.");
+            }
+        } else {
+            setDistance("Unable to fetch coordinates for one or both addresses.");
+        }
+    };
+
+    return (
+        <div>
+            <h1>Address Distance Calculator</h1>
+            <div>
+                <Input
+                    type="text"
+                    placeholder="Enter Address 1"
+                    value={address1}
+                    onChange={(e) => setAddress1(e.target.value)}
+                />
+                <Input
+                    type="text"
+                    placeholder="Enter Address 2"
+                    value={address2}
+                    onChange={(e) => setAddress2(e.target.value)}
+                />
+                <Button onClick={handleCalculateDistance}>Calculate Distance</Button>
+            </div>
+            {distance && <p>{distance}</p>}
+        </div>
+    );
+};
+
+export default AddressDistanceCalculator;
+
+import React, { useState, useEffect } from 'react';
+import { Layout, Tabs, Card, Table, Tag, Button, Modal, Form, Select, Input, Row, Col, notification, Checkbox, Space, Spin } from 'antd';
+import { Package, Truck, Box, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { useMediaQuery } from 'react-responsive';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const { Content } = Layout;
+const { TabPane } = Tabs;
+
+const STATUS = {
+  BOOKED: 'BOOKED',
+  INTRANSIT: 'INTRANSIT',
+  TRANSPORT_HUB_REACHED: 'TRANSPORT_HUB_REACHED',
+  TRANSPORT_HUB_PICKED: 'TRANSPORT_HUB_PICKED',
+  OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
+  DELIVERED: 'DELIVERED'
+};
+
+const mockDrivers = [
+  { id: 1, name: 'Driver 1', type: 'pickup' },
+  { id: 2, name: 'Driver 2', type: 'pickup' },
+  { id: 3, name: 'Driver 3', type: 'delivery' },
+  { id: 4, name: 'Driver 4', type: 'delivery' },
+];
+
+const mockParcels = [
+  {
+    id: 1,
+    shipmentTrackingDetails: {
+      waybillId: 'WB001',
+      receiverName: 'John Doe',
+      address: '123 Main St, Chennai',
+      orderStatus: STATUS.BOOKED,
+      pickupDriver: null,
+      deliveryDriver: null,
+    },
+  },
+  {
+    id: 2,
+    shipmentTrackingDetails: {
+      waybillId: 'WB002',
+      receiverName: 'Jane Smith',
+      address: '456 Park Ave, Chennai',
+      orderStatus: STATUS.INTRANSIT,
+      pickupDriver: null,
+      deliveryDriver: null,
+    },
+  },
+  {
+    id: 3,
+    shipmentTrackingDetails: {
+      waybillId: 'WB003',
+      receiverName: 'Bob Johnson',
+      address: '789 Oak Rd, Chennai',
+      orderStatus: STATUS.TRANSPORT_HUB_REACHED,
+      pickupDriver: null,
+      deliveryDriver: null,
+    },
+  },
+  {
+    id: 4,
+    shipmentTrackingDetails: {
+      waybillId: 'WB004',
+      receiverName: 'Alice Brown',
+      address: '321 Pine St, Chennai',
+      orderStatus: STATUS.TRANSPORT_HUB_PICKED,
+      pickupDriver: 'Driver 1',
+      deliveryDriver: null,
+    },
+  },
+  {
+    id: 5,
+    shipmentTrackingDetails: {
+      waybillId: 'WB005',
+      receiverName: 'Charlie Wilson',
+      address: '654 Elm St, Chennai',
+      orderStatus: STATUS.DELIVERED,
+      pickupDriver: 'Driver 2',
+      deliveryDriver: 'Driver 3',
+    },
+  },
+];
+
+const Operations: React.FC = () => {
+  const isMobile = useMediaQuery({ maxWidth: 768 });
+  const [activeTab, setActiveTab] = useState('1');
+  const [parcels, setParcels] = useState(mockParcels);
+  const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+  const [isAssignDriverModalVisible, setIsAssignDriverModalVisible] = useState(false);
+  const [selectedParcel, setSelectedParcel] = useState<any>(null);
+  const [userRole, setUserRole] = useState('');
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [isBulkUpdateModalVisible, setIsBulkUpdateModalVisible] = useState(false);
+  const [driverAssignmentType, setDriverAssignmentType] = useState<'pickup' | 'delivery'>('pickup');
+  const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState({
+    total: 0,
+    booked: 0,
+    inTransit: 0,
+    delivered: 0
+  });
+
+  const [form] = Form.useForm();
+  const [bulkForm] = Form.useForm();
+  const [driverForm] = Form.useForm();
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setUserRole(user.roles || 'ADMIN');
+    calculateCounts();
+  }, [parcels]);
+
+  const calculateCounts = () => {
+    const newCounts = parcels.reduce((acc, parcel) => {
+      acc.total++;
+      switch (parcel.shipmentTrackingDetails?.orderStatus) {
+        case STATUS.BOOKED:
+          acc.booked++;
+          break;
+        case STATUS.DELIVERED:
+          acc.delivered++;
+          break;
+        case STATUS.INTRANSIT:
+        case STATUS.TRANSPORT_HUB_REACHED:
+        case STATUS.TRANSPORT_HUB_PICKED:
+        case STATUS.OUT_FOR_DELIVERY:
+          acc.inTransit++;
+          break;
+      }
+      return acc;
+    }, { total: 0, booked: 0, inTransit: 0, delivered: 0 });
+    
+    setCounts(newCounts);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case STATUS.DELIVERED:
+        return { color: '#52c41a', background: '#f6ffed', border: '#b7eb8f' };
+      case STATUS.INTRANSIT:
+      case STATUS.TRANSPORT_HUB_REACHED:
+      case STATUS.TRANSPORT_HUB_PICKED:
+        return { color: '#1890ff', background: '#e6f7ff', border: '#91d5ff' };
+      case STATUS.BOOKED:
+        return { color: '#faad14', background: '#fffbe6', border: '#ffe58f' };
+      case STATUS.OUT_FOR_DELIVERY:
+        return { color: '#722ed1', background: '#f9f0ff', border: '#d3adf7' };
+      default:
+        return { color: '#8c8c8c', background: '#fafafa', border: '#d9d9d9' };
+    }
+  };
+
+  const getAvailableStatuses = () => {
+    switch (userRole) {
+      case 'TRANSPORT':
+        return [STATUS.INTRANSIT, STATUS.TRANSPORT_HUB_REACHED];
+      case 'DRIVER':
+        return [STATUS.TRANSPORT_HUB_PICKED, STATUS.TRANSPORT_HUB_REACHED, STATUS.OUT_FOR_DELIVERY, STATUS.DELIVERED];
+      case 'OPERATIONS':
+      case 'ADMIN':
+        return Object.values(STATUS);
+      default:
+        return [];
+    }
+  };
+
+  const handleStatusUpdate = (parcel: any) => {
+    setSelectedParcel(parcel);
+    setIsStatusModalVisible(true);
+  };
+
+  const handleAssignDriver = (type: 'pickup' | 'delivery') => {
+    setDriverAssignmentType(type);
+    setIsAssignDriverModalVisible(true);
+  };
+
+  const handleDriverAssignment = (values: any) => {
+    setLoading(true);
+    setTimeout(() => {
+      const updatedParcels = parcels.map(parcel => {
+        if (selectedRows.includes(parcel.id)) {
+          return {
+            ...parcel,
+            shipmentTrackingDetails: {
+              ...parcel.shipmentTrackingDetails,
+              [driverAssignmentType === 'pickup' ? 'pickupDriver' : 'deliveryDriver']: values.driver
+            }
+          };
+        }
+        return parcel;
+      });
+      
+      setParcels(updatedParcels);
+      notification.success({
+        message: 'Success',
+        description: `Driver assigned to ${selectedRows.length} orders`,
+        placement: 'bottomRight'
+      });
+      setIsAssignDriverModalVisible(false);
+      setSelectedRows([]);
+      driverForm.resetFields();
+      setLoading(false);
+    }, 1000);
+  };
+
+  const handleStatusSubmit = (values: any) => {
+    setLoading(true);
+    setTimeout(() => {
+      const updatedParcels = parcels.map(parcel => {
+        if (parcel.id === selectedParcel.id) {
+          return {
+            ...parcel,
+            shipmentTrackingDetails: {
+              ...parcel.shipmentTrackingDetails,
+              orderStatus: values.status
+            }
+          };
+        }
+        return parcel;
+      });
+      
+      setParcels(updatedParcels);
+      notification.success({
+        message: 'Success',
+        description: 'Status updated successfully',
+        placement: 'bottomRight'
+      });
+      setIsStatusModalVisible(false);
+      form.resetFields();
+      setLoading(false);
+    }, 1000);
+  };
+
+  const handleBulkStatusUpdate = (values: any) => {
+    setLoading(true);
+    setTimeout(() => {
+      const updatedParcels = parcels.map(parcel => {
+        if (selectedRows.includes(parcel.id)) {
+          return {
+            ...parcel,
+            shipmentTrackingDetails: {
+              ...parcel.shipmentTrackingDetails,
+              orderStatus: values.status
+            }
+          };
+        }
+        return parcel;
+      });
+      
+      setParcels(updatedParcels);
+      notification.success({
+        message: 'Success',
+        description: `Status updated for ${selectedRows.length} parcels`,
+        placement: 'bottomRight'
+      });
+      setIsBulkUpdateModalVisible(false);
+      setSelectedRows([]);
+      bulkForm.resetFields();
+      setLoading(false);
+    }, 1000);
+  };
+
+  const rowSelection = {
+    selectedRowKeys: selectedRows,
+    onChange: (selectedRowKeys: React.Key[]) => {
+      setSelectedRows(selectedRowKeys);
+    },
+  };
+
+  const getMobileColumns = () => [
+    {
+      title: 'Order Details',
+      key: 'orderDetails',
+      render: (record: any) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white rounded-lg shadow-sm p-4 mb-4"
+        >
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold">{record.shipmentTrackingDetails.waybillId}</span>
+              <Tag
+                style={{
+                  ...getStatusColor(record.shipmentTrackingDetails.orderStatus),
+                  borderRadius: '12px',
+                  padding: '4px 12px',
+                }}
+              >
+                {record.shipmentTrackingDetails.orderStatus}
+              </Tag>
+            </div>
+            
+            <div className="space-y-2">
+              <div>
+                <span className="text-gray-500">Receiver:</span>
+                <span className="ml-2 font-medium">{record.shipmentTrackingDetails.receiverName}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Address:</span>
+                <span className="ml-2">{record.shipmentTrackingDetails.address}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-gray-500">Pickup:</span>
+                  <span className="ml-2">{record.shipmentTrackingDetails.pickupDriver || 'Not Assigned'}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Delivery:</span>
+                  <span className="ml-2">{record.shipmentTrackingDetails.deliveryDriver || 'Not Assigned'}</span>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              type="primary"
+              onClick={() => handleStatusUpdate(record)}
+              disabled={!getAvailableStatuses().length}
+              style={{ borderRadius: '6px', width: '100%' }}
+            >
+              Update Status
+            </Button>
+          </Space>
+        </motion.div>
+      ),
+    },
+  ];
+
+  const getDesktopColumns = () => [
+    {
+      title: 'Waybill ID',
+      dataIndex: ['shipmentTrackingDetails', 'waybillId'],
+      key: 'waybillId',
+      render: (text: string) => (
+        <span className="font-medium text-gray-900">{text}</span>
+      ),
+    },
+    {
+      title: 'Receiver Name',
+      dataIndex: ['shipmentTrackingDetails', 'receiverName'],
+      key: 'receiverName',
+    },
+    {
+      title: 'Address',
+      dataIndex: ['shipmentTrackingDetails', 'address'],
+      key: 'address',
+      ellipsis: true,
+    },
+    {
+      title: 'Status',
+      dataIndex: ['shipmentTrackingDetails', 'orderStatus'],
+      key: 'status',
+      render: (status: string) => {
+        const statusStyle = getStatusColor(status);
+        return (
+          <Tag
+            style={{
+              color: statusStyle.color,
+              backgroundColor: statusStyle.background,
+              border: `1px solid ${statusStyle.border}`,
+              borderRadius: '12px',
+              padding: '4px 12px',
+            }}
+          >
+            {status}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Pickup Driver',
+      dataIndex: ['shipmentTrackingDetails', 'pickupDriver'],
+      key: 'pickupDriver',
+      render: (driver: string) => driver || 'Not Assigned',
+    },
+    {
+      title: 'Delivery Driver',
+      dataIndex: ['shipmentTrackingDetails', 'deliveryDriver'],
+      key: 'deliveryDriver',
+      render: (driver: string) => driver || 'Not Assigned',
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: any, record: any) => (
+        <Button 
+          type="primary"
+          onClick={() => handleStatusUpdate(record)}
+          disabled={!getAvailableStatuses().length}
+          style={{ borderRadius: '6px' }}
+        >
+          Update Status
+        </Button>
+      ),
+    },
+  ];
+
+  const renderCountCards = () => (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={12} sm={12} md={6}>
+          <Card 
+            style={{ 
+              background: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
+              borderRadius: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+          >
+            <div style={{ color: '#fff' }}>TOTAL ORDERS</div>
+            <div style={{ 
+              fontSize: isMobile ? '24px' : '48px', 
+              color: '#fff',
+              fontWeight: 'bold'
+            }}>
+              {counts.total}
+            </div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ color: '#faad14' }}>BOOKED</div>
+            <div style={{ 
+              fontSize: isMobile ? '24px' : '48px',
+              fontWeight: 'bold',
+              color: '#d48806'
+            }}>
+              {counts.booked}
+            </div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ color: '#1890ff' }}>IN TRANSIT</div>
+            <div style={{ 
+              fontSize: isMobile ? '24px' : '48px',
+              fontWeight: 'bold',
+              color: '#096dd9'
+            }}>
+              {counts.inTransit}
+            </div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} md={6}>
+          <Card style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ color: '#52c41a' }}>DELIVERED</div>
+            <div style={{ 
+              fontSize: isMobile ? '24px' : '48px',
+              fontWeight: 'bold',
+              color: '#389e0d'
+            }}>
+              {counts.delivered}
+            </div>
+          </Card>
+        </Col>
+      </Row>
+    </motion.div>
+  );
+
+  const renderTable = (dataSource: any[]) => (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Table 
+        rowSelection={rowSelection}
+        columns={isMobile ? getMobileColumns() : getDesktopColumns()}
+        dataSource={dataSource}
+        rowKey="id"
+        scroll={{ x: true }}
+        pagination={{
+          simple: isMobile,
+          pageSize: isMobile ? 5 : 10,
+          showTotal: (total) => `Total ${total} items`,
+          showSizeChanger: !isMobile,
+          style: { marginTop: '16px' }
+        }}
+        className="shadow-sm rounded-lg overflow-hidden"
+      />
+    </motion.div>
+  );
+    const getTableData = () => {
+    if (userRole === 'DRIVER') {
+      const pickupOrders = parcels.filter(
+        (p) =>
+          p.shipmentTrackingDetails?.orderStatus ===
+            STATUS.TRANSPORT_HUB_REACHED ||
+          p.shipmentTrackingDetails?.orderStatus === STATUS.TRANSPORT_HUB_PICKED
+      );
+      const deliveryOrders = parcels.filter(
+        (p) => p.shipmentTrackingDetails?.orderStatus === STATUS.OUT_FOR_DELIVERY
+      );
+      return { pickupOrders, deliveryOrders };
+    }
+    return {
+      allOrders: parcels,
+      pickupAssignment: parcels.filter(
+        (p) =>
+          p.shipmentTrackingDetails?.orderStatus ===
+          STATUS.TRANSPORT_HUB_REACHED
+      ),
+      deliveryAssignment: parcels.filter(
+        (p) =>
+          p.shipmentTrackingDetails?.orderStatus === STATUS.TRANSPORT_HUB_PICKED
+      ),
+    };
+  };
+
+  const renderAdminTabs = () => {
+    const { allOrders, pickupAssignment, deliveryAssignment } = getTableData();
+    
+    return (
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab}
+        tabBarGutter={isMobile ? 8 : 16}
+        size={isMobile ? 'small' : 'middle'}
+        className="bg-white p-4 rounded-lg shadow-sm"
+      >
+        <TabPane tab="All Orders" key="1">
+          {renderTable(allOrders)}
+        </TabPane>
+        <TabPane tab="Pickup Assignment" key="2">
+          {selectedRows.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Button
+                type="primary"
+                onClick={() => handleAssignDriver('pickup')}
+                style={{ 
+                  marginBottom: 16,
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 0 rgba(0,0,0,0.045)'
+                }}
+                block={isMobile}
+              >
+                Assign Pickup Driver
+              </Button>
+            </motion.div>
+          )}
+          {renderTable(pickupAssignment)}
+        </TabPane>
+        <TabPane tab="Delivery Assignment" key="3">
+          {selectedRows.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Button
+                type="primary"
+                onClick={() => handleAssignDriver('delivery')}
+                style={{ 
+                  marginBottom: 16,
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 0 rgba(0,0,0,0.045)'
+                }}
+                block={isMobile}
+              >
+                Assign Delivery Driver
+              </Button>
+            </motion.div>
+          )}
+          {renderTable(deliveryAssignment)}
+        </TabPane>
+      </Tabs>
+    );
+  };
+
+  return (
+    <Spin spinning={loading}>
+      <Content className={isMobile ? "p-2" : "p-6"}>
+        <div className="max-w-7xl mx-auto">
+          <motion.h1 
+            className={`${isMobile ? 'text-xl' : 'text-2xl'} font-bold mb-6`}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            Operations Management
+          </motion.h1>
+          
+          {renderCountCards()}
+
+          {selectedRows.length > 0 && activeTab === '1' && (
+            <motion.div 
+              className="mb-4"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Button
+                type="primary"
+                onClick={() => setIsBulkUpdateModalVisible(true)}
+                block={isMobile}
+                style={{ 
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 0 rgba(0,0,0,0.045)'
+                }}
+              >
+                Update Status for {selectedRows.length} Selected Orders
+              </Button>
+            </motion.div>
+          )}
+
+          {userRole === 'DRIVER' ? (
+            <Tabs 
+              activeKey={activeTab} 
+              onChange={setActiveTab}
+              size={isMobile ? 'small' : 'middle'}
+              className="bg-white p-4 rounded-lg shadow-sm"
+            >
+              <TabPane tab="Pickup Orders" key="1">
+                {renderTable(getTableData().pickupOrders)}
+              </TabPane>
+              <TabPane tab="Delivery Orders" key="2">
+                {renderTable(getTableData().deliveryOrders)}
+              </TabPane>
+            </Tabs>
+          ) : (
+            renderAdminTabs()
+          )}
+
+          <Modal
+            title="Update Status"
+            open={isStatusModalVisible}
+            onCancel={() => setIsStatusModalVisible(false)}
+            footer={null}
+            width={isMobile ? '90%' : 520}
+            className="rounded-lg"
+          >
+            <Form
+              form={form}
+              onFinish={handleStatusSubmit}
+              layout="vertical"
+            >
+              <Form.Item
+                name="status"
+                label="Select Status"
+                rules={[{ required: true, message: 'Please select a status' }]}
+              >
+                <Select placeholder="Select new status">
+                  {getAvailableStatuses().map(status => (
+                    <Select.Option key={status} value={status}>
+                      {status}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item>
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  block
+                  loading={loading}
+                  style={{ borderRadius: '6px' }}
+                >
+                  Update Status
+                </Button>
+              </Form.Item>
+            </Form>
+          </Modal>
+
+          <Modal
+            title="Bulk Update Status"
+            open={isBulkUpdateModalVisible}
+            onCancel={() => {
+              setIsBulkUpdateModalVisible(false);
+              setSelectedRows([]);
+            }}
+            footer={null}
+            width={isMobile ? '90%' : 520}
+            className="rounded-lg"
+          >
+            <Form
+              form={bulkForm}
+              onFinish={handleBulkStatusUpdate}
+              layout="vertical"
+            >
+              <Form.Item
+                name="status"
+                label="Select Status"
+                rules={[{ required: true, message: 'Please select a status' }]}
+              >
+                <Select placeholder="Select new status">
+                  {getAvailableStatuses().map(status => (
+                    <Select.Option key={status} value={status}>
+                      {status}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item>
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  block
+                  loading={loading}
+                  style={{ borderRadius: '6px' }}
+                >
+                  Update Status for {selectedRows.length} Orders
+                </Button>
+              </Form.Item>
+            </Form>
+          </Modal>
+
+          <Modal
+            title={`Assign ${driverAssignmentType === 'pickup' ? 'Pickup' : 'Delivery'} Driver`}
+            open={isAssignDriverModalVisible}
+            onCancel={() => {
+              setIsAssignDriverModalVisible(false);
+              setSelectedRows([]);
+            }}
+            footer={null}
+            width={isMobile ? '90%' : 520}
+            className="rounded-lg"
+          >
+            <Form
+              form={driverForm}
+              onFinish={handleDriverAssignment}
+              layout="vertical"
+            >
+              <Form.Item
+                name="driver"
+                label="Select Driver"
+                rules={[{ required: true, message: 'Please select a driver' }]}
+              >
+                <Select placeholder="Select driver">
+                  {mockDrivers
+                    .filter(driver => driver.type === driverAssignmentType)
+                    .map(driver => (
+                      <Select.Option key={driver.id} value={driver.name}>
+                        {driver.name}
+                      </Select.Option>
+                    ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item>
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  block
+                  loading={loading}
+                  style={{ borderRadius: '6px' }}
+                >
+                  Assign Driver to {selectedRows.length} Orders
+                </Button>
+              </Form.Item>
+            </Form>
+          </Modal>
+        </div>
+      </Content>
+    </Spin>
+  );
+};
+
+export default Operations;
+
+import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
+import { Link2, QrCode, Printer } from 'lucide-react';
+
+function App() {
+  const [url, setUrl] = useState('');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+  useEffect(() => {
+    if (url) {
+      QRCode.toDataURL(url, {
+        width: 512,
+        margin: 2,
+        quality: 1.0,
+      })
+        .then(setQrCodeUrl)
+        .catch(err => console.error(err));
+    }
+  }, [url]);
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print QR Code</title>
+          <style>
+            @page {
+              size: 62mm 29mm;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              width: 62mm;
+              height: 29mm;
+            }
+            img {
+              width: 25mm;
+              height: 25mm;
+            }
+            @media print {
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${qrCodeUrl}" alt="QR Code" />
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    // Wait for the image to load before printing
+    const img = printWindow.document.querySelector('img');
+    if (img) {
+      img.onload = () => {
+        printWindow.print();
+        printWindow.close();
+      };
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+        <div className="flex items-center gap-2 mb-6">
+          <QrCode className="w-8 h-8 text-indigo-600" />
+          <h1 className="text-2xl font-bold text-gray-800">QR Code Generator</h1>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Link2 className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Enter your URL here"
+              className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition"
+            />
+          </div>
+
+          <div className="flex flex-col items-center gap-4">
+            {qrCodeUrl ? (
+              <>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <img
+                    src={qrCodeUrl}
+                    alt="QR Code"
+                    className="w-64 h-64"
+                  />
+                </div>
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!qrCodeUrl}
+                >
+                  <Printer className="w-5 h-5" />
+                  Print Label
+                </button>
+              </>
+            ) : (
+              <div className="w-64 h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                <p className="text-gray-400 text-center">
+                  Enter a URL to generate QR code
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+import React, { useState, useEffect } from 'react';
+import {
+  Input,
+  Button,
+  Card,
+  Table,
+  DatePicker,
+  Space,
+  Tag,
+  Timeline,
+  Typography,
+} from 'antd';
+import { SearchOutlined, CalendarOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import {getData} from '../service/AppService'
+
+const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
+
+interface ShipmentData {
+  key: string;
+  sNo: number;
+  waybillNo: string;
+  name: string;
+  address: string;
+  edd: string;
+  status: 'Delivered' | 'In Transit' | 'Booked' | 'Out for Delivery';
+}
+
+const TrackParcel: React.FC = () => {
+  const [searchText, setSearchText] = useState('');
+  const [selectedShipment, setSelectedShipment] = useState<ShipmentData | null>(
+    null
+  );
+
+  const [cart , setCart]= useState('1');
+
+  const [data, setData]= useState([]);
+
+
+  useEffect(()=>{
+    console.log("asds");
+    setCart("Tracking page");
+    console.log(cart);
+    getData(`https://jsonplaceholder.typicode.com/posts`).then((res:any) => {
+  
+      setData(res);
+    }).catch((err) => {
+        console.log('Error:', err);
+    });
+
+  }, [])
+
+
+
+
+
+
+  const columns: ColumnsType<ShipmentData> = [
+    {
+      title: 'S.No',
+      dataIndex: 'sNo',
+      key: 'sNo',
+      width: 70,
+    },
+    {
+      title: 'Waybill No',
+      dataIndex: 'waybillNo',
+      key: 'waybillNo',
+    },
+    {
+      title: 'Name',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Address',
+      dataIndex: 'address',
+      key: 'address',
+      ellipsis: true,
+    },
+    {
+      title: 'EDD',
+      dataIndex: 'edd',
+      key: 'edd',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        let color = 'default';
+        switch (status) {
+          case 'Delivered':
+            color = 'success';
+            break;
+          case 'In Transit':
+            color = 'processing';
+            break;
+          case 'Booked':
+            color = 'warning';
+            break;
+          case 'Out for Delivery':
+            color = 'blue';
+            break;
+        }
+        return <Tag color={color}>{status}</Tag>;
+      },
+    },
+    {
+      title: 'Edit',
+      key: 'action',
+      render: (_, record) => (
+        <Button type="text" onClick={() => setSelectedShipment(record)}>
+          •••
+        </Button>
+      ),
+    },
+  ];
+
+
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <Title level={4}>{cart}</Title>
+        <Text type="secondary">
+          You can Track all you Recent and old bookings here!
+        </Text>
+      </div>
+
+      <Space className="w-full mb-6" size="middle">
+        <Input
+          placeholder="Search with Tracking Id or waybill No"
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 300 }}
+        />
+        <RangePicker
+          placeholder={['Jan 01,2025', 'Jan 02,2025']}
+          style={{ width: 300 }}
+        />
+      </Space>
+
+      <Card title="Shipping List">
+        <Table
+          columns={columns}
+          dataSource={data}
+          pagination={false}
+        />
+      </Card>
+
+      {selectedShipment && (
+        <Card title="Package Details" className="mt-6">
+          <Timeline
+            items={[
+              {
+                color: 'green',
+                children: (
+                  <>
+                    <Text strong>Booked</Text>
+                    <br />
+                    <Text type="secondary">Booked by devi transport</Text>
+                    <br />
+                    <Text type="secondary">@Jan 04,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+              {
+                color: 'blue',
+                children: (
+                  <>
+                    <Text strong>Reached transporter hub</Text>
+                    <br />
+                    <Text type="secondary">@Jan 05,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+              {
+                color: 'blue',
+                children: (
+                  <>
+                    <Text strong>Collected by hubgo</Text>
+                    <br />
+                    <Text type="secondary">@Jan 05,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+              {
+                color: 'blue',
+                children: (
+                  <>
+                    <Text strong>Reached Nearest hub</Text>
+                    <br />
+                    <Text type="secondary">@Jan 05,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+              {
+                color: 'blue',
+                children: (
+                  <>
+                    <Text strong>Out For Delivery</Text>
+                    <br />
+                    <Text type="secondary">@Jan 05,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+              {
+                color: 'gray',
+                children: (
+                  <>
+                    <Text strong>Delivered</Text>
+                    <br />
+                    <Text type="secondary">@Jan 05,2025 (11:11 am)</Text>
+                  </>
+                ),
+              },
+            ]}
+          />
+
+          <div className="mt-6">
+            <Title level={5}>Package Details</Title>
+            <ul className="list-disc pl-6">
+              <li>Envelope / Pouch - Medium - Documents - 2</li>
+              <li>Carton Box - Medium - Books - 2</li>
+            </ul>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default TrackParcel;
+
+import React from 'react';
+import { Form, Input, Button, Typography,notification } from 'antd';
+import { PhoneOutlined } from '@ant-design/icons';
+
+const { Title } = Typography;
+
+const Signup: React.FC = () => {
+    const onFinish = (values: any) => {
+        // Simulating API call
+        console.log(values);
+        setTimeout(() => {
+            if (Math.random() > 0.5) {
+                notification.success({
+                    message: 'Registration successful!',
+                    description: 'Your account has been registered successfully.'
+                });
+            } else {
+                notification.error({
+                    message: 'Registration failed',
+                    description: 'An error occurred during registration. Please try again later.'
+                });
+            }
+        }, 500);
+    };
+
+    return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
+            <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
+                <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
+                <Form name="signup" onFinish={onFinish} layout="vertical">
+        
+                    <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
+                        <Input placeholder="Enter your name" />
+                    </Form.Item>
+                    <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
+                        <Input placeholder="Enter your email" type='email' />
+                    </Form.Item>
+                    <Form.Item name="phone" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!',}]}>
+                        <Input
+                            prefix={<PhoneOutlined />}
+                            placeholder="Enter your phone number"
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" block>Register</Button>
+                    </Form.Item>
+                </Form>
+            </div>
+        </div>
+    );
+};
+
+export default Signup;
+
+
+import { PlusOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Button, Col, Divider, Form, Input, InputNumber, Layout, message, notification, Radio, Row, Select, Space, Table, AutoComplete, Spin } from 'antd';
+import { Box, Package, Plus, ShoppingCart } from 'lucide-react';
+import React, { useRef, useState, useEffect, useContext } from 'react';
+import type { GetRef, InputRef, TableProps } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { postData } from '../service/AppService';
+import { AutoCompleteProps } from "antd/es/auto-complete";
+import { Client } from '@googlemaps/google-maps-services-js';
+import { OlaMapsSDK } from "ola-maps-node-sdk";
+
+const { Option } = Select;
+const { Content } = Layout;
+export interface CartItem {
+    cartItrr: number;
+    waybillNo: string;
+    pincode: string;
+    packageType: string;
+    productSize: string;
+    packageContent: string;
+    productQuantity: number;
+    productValue: number;
+    transportCharges: number;
+    hubgoCharges: number;
+}
+interface DataType {
+    cartItrr: React.Key;
+    waybillNo: string;
+    pincode: string;
+    packageType: string;
+    productSize: string;
+    packageContent: string;
+    productQuantity: number;
+    productValue: number;
+    transportCharges: number;
+    hubgoCharges: number;
+}
+
+type FormInstance<T> = GetRef<typeof Form<T>>;
+
+const EditableContext = React.createContext<FormInstance<any> | null>(null);
+interface EditableRowProps {
+    index: number;
+}
+
+const EditableRow: React.FC<EditableRowProps> = ({ index, ...props }) => {
+    const [tform] = Form.useForm();
+
+    return (
+        <Form form={tform} component={false}>
+            <EditableContext.Provider value={tform}>
+                <tr {...props} />
+            </EditableContext.Provider>
+        </Form>
+    );
+};
+interface EditableCellProps {
+    title: React.ReactNode;
+    editable: boolean;
+    dataIndex: keyof CartItem;
+    record: CartItem;
+    handleSave: (record: CartItem) => void;
+}
+const EditableCell: React.FC<React.PropsWithChildren<EditableCellProps>> = ({
+    title,
+    editable,
+    children,
+    dataIndex,
+    record,
+    handleSave,
+    ...restProps
+}) => {
+    const [editing, setEditing] = useState(false);
+    const inputRef = useRef<InputRef>(null);
+    const form = useContext(EditableContext)!;
+
+    useEffect(() => {
+        if (editing) {
+            inputRef.current?.focus();
+        }
+    }, [editing]);
+
+    const toggleEdit = () => {
+        setEditing(!editing);
+        form.setFieldsValue({ [dataIndex]: record[dataIndex] });
+    };
+
+    const save = async () => {
+        try {
+            const values = await form.validateFields();
+
+            toggleEdit();
+            handleSave({ ...record, ...values });
+        } catch (errInfo) {
+            console.log('Save failed:', errInfo);
+        }
+    };
+
+    let childNode = children;
+
+    if (editable) {
+        childNode = editing ? (
+            <Form.Item
+                style={{ margin: 0 }}
+                name={dataIndex}
+                rules={[{ required: true, message: `${title} is required.` }]}
+            >
+                <Input ref={inputRef} onPressEnter={save} onBlur={save} />
+            </Form.Item>
+        ) : (
+            <div
+                className="editable-cell-value-wrap"
+                style={{ paddingInlineEnd: 24 }}
+                onClick={toggleEdit}
+            >
+                <Input value={children?.toString().replace(",", "")} />
+            </div>
+        );
+    }
+
+    return <td {...restProps}>{childNode}</td>;
+};
+type ColumnTypes = Exclude<TableProps<DataType>['columns'], undefined>;
+
+const OLAOptions = {
+    clientId: "58cc9752-8409-4a2f-8cda-c6a6974fcc03",
+    clientSecret: "a8V6Ha3lRQsrPiTB92j6N8wXYwUWvLWc"
+}
+
+
+const Bookings = () => {
+    const [form] = Form.useForm();
+    const [spin, setSpin] = useState<any>(false);
+    const [cform] = Form.useForm();
+    const [tableForm] = Form.useForm();
+    const [items, setItems] = useState<CartItem[]>([]);
+    const [waybillNo, setWaybillNo] = useState<any>(null);
+    const [cartItr, setCartItr] = useState(0);
+    const [senderName, setSenderName] = useState<any>(null);
+    const [senderMobileNo, setSenderMobileNo] = useState<any>(null);
+    const [receiverName, setReceiverName] = useState<any>(null);
+    const [receiverMobileNo, setReceiverMobileNo] = useState<any>(null);
+    const [senderHubCoordinates, setSenderHubCoordinates] = useState<any>(null);
+    const [receiverCoordinates, setReceiverCoordinates] = useState<any>();
+    const [address, setAddress] = useState<any>(null);
+    const [bookedByTA, setBookedByTA] = useState<any>(1);
+    const [distance, setDistance] = useState(0);
+    const [pincode, setPincode] = useState<any>(null);
+    const [paymentMethod, setPaymentMethod] = useState<any>("PREPAID");
+    const [transportShippingCharges, setTransportShippingCharges] = useState<any>("100");
+    const [hubgoDeliveryCharges, setHubgoDeliveryCharges] = useState<any>("100");
+    const [packageOptions, setPackageOptions] = useState([{ label: "Envelope / Pouch", value: "envelope" }, { label: "Box / Carton", value: "box" }, { label: "Suitcases / Handbags", value: "suitcase" }]);
+    const [packageName, setPackageName] = useState<any>("");
+    const [packageContentOptions, setPackageContentOptions] = useState([{ label: "Books and Documents", value: "documents" }, { label: "Electronics", value: "electronics" }, { label: "Clothes / Personal Items", value: "clothes" }, { label: "HouseHold", value: "household" }, { label: "Consumables", value: "consumables" }]);
+    const [packageContent, setPackageContent] = useState<any>("");
+    const [customDimensions, setCustomDimensions] = useState({
+        length: '',
+        breadth: '',
+        height: '',
+    });
+    const [unit, setUnit] = useState('cm');
+    const [weight, setWeight] = useState('');
+    const navigate = useNavigate();
+    const [totalQty, setTotalQty] = useState(0);
+    const [totalProductValue, setTotalProductValue] = useState(0);
+    const [totalTransportCharges, setTotalTransportCharges] = useState(0);
+    const [totalhubGoCharges, setTotalhubGoCharges] = useState(0);
+    const [options, setOptions] = useState<AutoCompleteProps["options"]>([]);
+    const [totalkms, setTotalKms] = useState<any>(0);
+    const loadGoogleMapsScript = (apiKey: string) => {
+        if (!window.google) {
+            const script = document.createElement("script");
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+            script.async = true;
+            script.onload = () => console.log("Google Maps script loaded");
+            document.head.appendChild(script);
+        }
+    };
+
+    const [newPackage, setNewPackage] = useState<{
+        type: 'fixed' | 'custom';
+        size?: 'L' | 'M' | 'S' | 'XS';
+        dimensions?: {
+          length: number;
+          width: number;
+          height: number;
+          actualWeight: number;
+        };
+        quantity: number;
+      }>({
+        type: 'fixed',
+        size: 'L',
+        quantity: 1,
+      });
+    const handleAddressSearch = async (value: string) => {
+        if (!value) return;
+
+        // Fetch suggestions from Google Places API
+        const autocompleteService = new google.maps.places.AutocompleteService();
+        autocompleteService.getPlacePredictions(
+            { input: value },
+            (predictions, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                    setOptions(
+                        predictions.map((prediction) => ({
+                            value: prediction.description,
+                            label: (
+                                <div style={{ display: "flex", alignItems: "center" }}>
+                                    <span>{prediction.description}</span>
+                                </div>
+                            ),
+                        }))
+                    );
+                } else {
+                    if (status == 'ZERO_RESULTS') {
+                        setAddress(value);
+                    }
+                }
+            }
+        );
+
+    };
+
+
+    const handleAddressSelect = async (value: string) => {
+        console.log("Selected place:", value);
+        if (window.google) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: value }, (results, status) => {
+                if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+                    const lat = results[0].geometry.location.lat();
+                    const lng = results[0].geometry.location.lng();
+                    if (senderHubCoordinates != null && receiverCoordinates != null && lat && lng) {
+                        calculateRouteDistance({ lat: senderHubCoordinates.toString().split(",")[0], lng: senderHubCoordinates.toString().split(",")[1] }, { lat, lng });
+                    }
+                } else {
+                    console.error("Geocode was not successful for the following reason: " + status);
+                }
+            });
+        }
+    };
+
+    const calculateRouteDistance = async (origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) => {
+        try {
+
+
+            const ola_map = new OlaMapsSDK(OLAOptions);
+            ola_map.Routing.directions({
+                lat: origin.lat,
+                long: origin.lng
+            }, {
+                lat: destination.lat,
+                long: destination.lng
+            }).then(response => {
+                let kms = 0;
+                if (response && response.routes && response.routes.length > 0 && response.routes[0].legs[0].distance) {
+                    let dist = response.routes[0].legs[0].distance;
+                    kms = parseInt(dist) / 1000;
+                    setDistance(kms);
+                }
+                return kms;
+            }).catch(err => console.log(err))
+        } catch (error: any) {
+            console.error("Error calculating route distance with Ola Maps:", error);
+            message.error(error?.message || "Failed to calculate route distance. Please try again.");
+        }
+        return null;
+    };
+
+
+    useEffect(() => {
+        let qty = 0, pv = 0, tranport = 0, hubgo = 0;
+        console.log(items)
+        items.forEach((e) => {
+            if ((e.productQuantity)) {
+                qty += Number(e.productQuantity);
+                pv += Number(e.productValue);
+                tranport += Number(e.transportCharges);
+                hubgo += Number(e.hubgoCharges);
+            }
+        });
+        setTotalQty(qty);
+        setTotalProductValue(pv);
+        setTotalTransportCharges(tranport);
+        setTotalhubGoCharges(hubgo);
+    }, [items])
+
+    const [predefinedOptions, setPredefinedOptions] = useState([
+        { label: 'Small (4x4x4 cm) Upto 5 kg', value: 'small' },
+        { label: 'Medium (8x8x8 cm) Upto 12 kg', value: 'medium' },
+        { label: 'Large (12x12x12 cm) Upto 25 kg', value: 'large' },
+    ]);
+    const handleCustomInput = (field: any, value: any) => {
+        setCustomDimensions((prev) => ({
+            ...prev,
+            [field]: value,
+        }));
+    };
+    const addCustomPackage = () => {
+        const { length, breadth, height } = customDimensions;
+
+        // Validation
+        if (!length || !breadth || !height || !weight) {
+            message.warning('Please fill in all dimensions and weight before adding.');
+            return;
+        }
+
+        // Create custom label
+        const label = `Other (${length}x${breadth}x${height}, ${unit}) (${weight}, Kg)`;
+
+        // Prevent duplicate entries
+        const exists = predefinedOptions.some((option) => option.label === label);
+        if (exists) {
+            message.warning('This package size already exists.');
+            return;
+        }
+
+        // Add the custom package option
+        setPredefinedOptions((prevOptions) => [
+            ...prevOptions,
+            { label, value: label },
+        ]);
+        form.setFieldsValue({ "productSize": label })
+        // Clear custom inputs
+        setCustomDimensions({ length: '', breadth: '', height: '' });
+        setWeight('');
+        message.success('Custom package added successfully!');
+    };
+
+
+    useEffect(() => {
+        const res = localStorage.getItem('user');
+        let userJson = JSON.parse(res || '{}');
+        console.log(userJson);
+        if (userJson.userid) {
+            setBookedByTA(userJson.userid);
+        }
+        setSenderHubCoordinates(userJson.userCoordinates);
+        if (userJson.roles != 'ADMIN' && userJson.roles != 'TRANSPORT') {
+            navigate('/', { replace: true });
+        }
+        loadGoogleMapsScript('AIzaSyDDk6OlltVqeQ4H59ej6s0AU0NI3aeVF4U');
+    }, [])
+
+    const addPackageName = () => {
+        form.setFieldsValue({ 'packageType': packageName })
+        if (packageName.trim() !== '') {
+            setPackageOptions((prevOptions) => [
+                ...prevOptions,
+                { label: packageName, value: packageName },
+            ]);
+            setPackageName('');
+        }
+    };
+    const addPackageContent = () => {
+        if (packageContent.trim() !== '') {
+            const exists = packageContentOptions.some(
+                (option) => option.value.toLowerCase() === packageContent.trim().toLowerCase()
+            );
+
+            if (!exists) {
+                setPackageContentOptions((prevOptions) => [
+                    ...prevOptions,
+                    { label: packageContent, value: packageContent },
+                ]);
+                form.setFieldValue('packageContent', packageContent); // Update form field value
+                setPackageName(''); // Clear the input field
+            } else {
+                message.warning('This package content already exists.');
+            }
+        }
+    };
+
+    const handleSave = (row: CartItem) => {
+        const newData = [...items];
+        const index = newData.findIndex(item => row.cartItrr === item.cartItrr);
+        newData.splice(index, 1, row);
+        setItems(newData);
+    };
+
+    //ADD TO ITEMS
+    const addItem = (item: CartItem) => {
+        setCartItr(item.cartItrr);
+        setItems([...items, item]);
+    };
+    const removeItem = (itr: number) => {
+        setItems(items.filter(item => item.cartItrr !== itr));
+    };
+
+
+
+    const mcolumns: (ColumnTypes[number] & { editable?: boolean; dataIndex: string })[] = [
+        {
+            title: 'S.No',
+            dataIndex: 'cartItrr',
+            key: 'cartItrr',
+        },
+        {
+            title: 'Package Type',
+            dataIndex: 'packageType',
+            key: 'packageType',
+        },
+        {
+            title: 'Package Size',
+            dataIndex: 'productSize',
+            key: 'productSize',
+        },
+        {
+            title: 'Package Content',
+            dataIndex: 'packageContent',
+            key: 'packageContent',
+        },
+        {
+            title: 'Quantity',
+            dataIndex: 'productQuantity',
+            key: 'productQuantity',
+        },
+        {
+            title: 'ProductValue',
+            dataIndex: 'productValue',
+            key: 'productValue',
+            editable: true,
+        },
+        {
+            title: 'Transport Charges',
+            dataIndex: 'transportCharges',
+            key: 'transportCharges',
+            editable: true,
+        },
+        {
+            title: 'HubGo Charges',
+            dataIndex: 'hubgoCharges',
+            key: 'hubgoCharges',
+            render: (value: number) => `₹${value}`,
+        },
+        {
+            title: 'Action',
+            key: 'action',
+            dataIndex: 'x',
+            render: (re: any, record: any) => (
+                <Button
+                    type="link"
+                    danger
+                    onClick={() => removeItem(record.cartItrr)}
+                >
+                    Remove
+                </Button>
+            ),
+        }
+    ];
+    const components = {
+        body: {
+            row: EditableRow,
+            cell: EditableCell,
+        },
+    };
+    const columns = mcolumns.map((col) => {
+        if (!col.editable) {
+            return col;
+        }
+        return {
+            ...col,
+            onCell: (record: DataType) => ({
+                record,
+                editable: col.editable,
+                dataIndex: col.dataIndex,
+                title: col.title,
+                handleSave,
+            }),
+        };
+    });
+
+
+
+
+    const handleSubmit = async (values: any) => {
+        setSpin(false);
+        if (!waybillNo || !address) {
+            setSpin(false);
+            message.error('Please fill in Waybill Number and Address in Receiver Information');
+            return;
+
+        } else {
+
+        }
+        if (distance == 0) {
+            if (!pincode) {
+                setSpin(false);
+                notification.error({ message: "Please Enter Pincode!", duration: 2 });
+
+            } else {
+                if (window.google) {
+                    const geocoder = new google.maps.Geocoder();
+
+                    await geocoder.geocode({ address: `${pincode} Chennai, Tamil Nadu, India`, }, async (results, status) => {
+                        if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
+                            const lat = results[0].geometry.location.lat();
+                            const lng = results[0].geometry.location.lng();
+                            if (senderHubCoordinates != null && lat && lng) {
+                                calculateRouteDistance({ lat: senderHubCoordinates.toString().split(",")[0], lng: senderHubCoordinates.toString().split(",")[1] }, { lat, lng }).then((kms) => {
+                                    console.log(kms);
+                                    let cartitr = cartItr + 1;
+                                    const cartItem = {
+                                        cartItrr: cartitr,
+                                        waybillNo,
+                                        pincode,
+                                        packageType: values.packageType,
+                                        productSize: values.productSize,
+                                        packageContent: values.packageContent,
+                                        productQuantity: values.productQuantity || 1,
+                                        productValue: 0,
+                                        transportCharges: 0,
+                                        hubgoCharges: 100
+                                    };
+                                    addItem(cartItem);
+                                    // setSpin(true);
+                                    message.success('Package added to cart');
+                                    form.resetFields(['packageType', 'productSize', 'packageContent', 'productQuantity']);
+                                })
+
+
+
+                            }
+                        } else {
+                            console.error("Geocode was not successful for the following reason: " + status);
+                            notification.error({ message: "Unable to get Pincode location" });
+                        }
+                    });
+                } else {
+                    console.error("Geocode was not successful for the following reason: " + status);
+                    notification.error({ message: "Unable to get Pincode location" });
+                }
+            }
+        } else {
+            let cartitr = cartItr + 1;
+            const cartItem = {
+                cartItrr: cartitr,
+                waybillNo,
+                pincode,
+                packageType: values.packageType,
+                productSize: values.productSize,
+                packageContent: values.packageContent,
+                productQuantity: values.productQuantity || 1,
+                productValue: 0,
+                transportCharges: 0,
+                hubgoCharges: 100
+            };
+            addItem(cartItem);
+            message.success('Package added to cart');
+            form.resetFields(['packageType', 'productSize', 'packageContent', 'productQuantity']);
+        }
+    };
+
+
+    const handleBooking = () => {
+
+        if (!waybillNo || !address || !items.length) {
+            message.error('Please fill in Waybill Number and Pincode in Receiver Information');
+        } else {
+            if (!senderName || !senderMobileNo) {
+                message.error('Please fill in Sender Name and Mobile Number');
+            } else {
+                if (!receiverName || !receiverMobileNo) {
+                    message.error('Please fill in Receiver Name and Mobile Number');
+                } else {
+                    if (!address || !pincode) {
+                        message.error('Please fill in Address and Pincode');
+                    } else {
+                        let bookingJSON = {
+                            waybillId: waybillNo,
+                            senderName: senderName,
+                            senderMobileNo: senderMobileNo,
+                            receiverName: receiverName,
+                            receiverMobileNo: receiverMobileNo,
+                            senderHubCoordinates: senderHubCoordinates,
+                            receiverCoordinates: receiverCoordinates,
+                            address: address,
+                            pincode: pincode,
+                            bookedByTA: parseInt(bookedByTA),
+                            distance: distance,
+                            productDetailsDTOList: items,
+                            paymentMethod: paymentMethod,
+                            totalProductValue: totalProductValue,
+                            totalTransportAmount: totalTransportCharges,
+                            totalHubgoAmount: totalhubGoCharges
+                        };
+                        console.log(bookingJSON);
+                        postData('/api/booking/book-order', bookingJSON).then((res: any) => {
+                            console.log(res);
+                            if (!res.orderId && !res.packageId) {
+                                notification.error({ message: res.message });
+                            } else {
+                                notification.success({ message: 'Booking successful' });
+                            }
+                        }).catch((err) => {
+                            console.log(err);
+                            notification.error({ message: 'Error booking' });
+                        });
+
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+    }
+
+
+    return (
+        <Spin
+            indicator={<LoadingOutlined spin />}
+            size="large"
+            spinning={spin}
+        >
+            <Content className="p-6 bg-gray-50">
+                <div className="max-w-7xl mx-auto">
+                    <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+                        <div className="flex items-center mb-4">
+                            <Package className="mr-2 text-orange-500" />
+                            <h2 className="text-lg font-semibold">Receiver Information</h2>
+                        </div>
+
+                        <Form form={cform}>
+                            <div>
+                                <Row>
+                                    <h3 className="font-medium mb-4">From</h3>
+
+                                </Row>
+                                <Row>
+                                    <Col span={7}>
+
+                                        <Form.Item label="Sender Name">
+                                            <Input placeholder="Enter sender name" onChange={(e) => setSenderName(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={1}></Col>
+                                    <Col span={7} >
+
+                                        <Form.Item label="Sender Ph.No" >
+                                            <Input placeholder="Enter phone number" onChange={(e) => setSenderMobileNo(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Row>
+                                    <h3 className="font-medium mb-4">To</h3>
+                                </Row>
+                                <Row>
+                                    <Col span={7}>
+                                        <Form.Item label="Waybill Number">
+                                            <Input placeholder="Enter waybill number" onChange={(e) => setWaybillNo(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={1} />
+                                    <Col span={7}>
+                                        <Form.Item label="Name">
+                                            <Input placeholder="Enter receiver name" onChange={(e) => setReceiverName(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={1} />
+                                    <Col span={7}>
+                                        <Form.Item label="Ph.No">
+                                            <Input placeholder="Enter phone number" onChange={(e) => setReceiverMobileNo(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                <Row>
+
+                                    <Col span={7}>
+                                        <Form.Item label="Pin Code" name="pincode">
+                                            <Input placeholder="Enter pin code" onChange={(e) => setPincode(e.target.value)} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={1} />
+                                    <Col span={7}>
+                                        <Form.Item label="Address" name="address">
+
+                                            <AutoComplete
+                                                options={options}
+                                                onSearch={handleAddressSearch}
+                                                onSelect={handleAddressSelect}
+
+                                                style={{ width: 300 }}
+                                            >
+                                                <Input.Search placeholder="Search places" onChange={(e) => setAddress(e.target.value)} />
+                                            </AutoComplete>
+
+                                            {/* <Input.TextArea placeholder="Enter complete address"  */}
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                            </div>
+                        </Form>
+                    </div>
+                    <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
+                        <div className="flex items-center mb-4">
+                            <Box className="mr-2 text-orange-500" />
+                            <h2 className="text-lg font-semibold">Package Details</h2>
+                        </div>
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={handleSubmit}
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <Form.Item
+                                    label="Packaging Type"
+                                    name="packageType"
+                                    rules={[{ required: true, message: 'Please select packaging type' }]}
+                                >
+                                    <Select
+                                        placeholder="Select Packaging"
+                                        options={packageOptions}
+                                        allowClear
+                                        dropdownRender={(menu) => (
+                                            <div>
+                                                {menu}
+                                                <Divider style={{ margin: '8px 0' }} />
+                                                <span style={{ margin: '8px 4px' }}>Others</span>
+                                                <Space style={{ padding: '0 8px 4px' }}>
+                                                    <Input
+                                                        placeholder="Specify Package Content"
+                                                        value={packageName}
+                                                        onChange={(e) => setPackageName(e.target.value)}
+                                                    />
+                                                    <Button
+                                                        type="text"
+                                                        icon={<PlusOutlined />}
+                                                        onClick={() => {
+                                                            addPackageName();
+                                                            document.activeElement.blur(); // Close the dropdown
+                                                        }}
+                                                    />
+                                                </Space>
+                                            </div>
+                                        )}
+                                    />
+                                </Form.Item>
+                                <Form.Item
+                                    label="Package Size"
+                                    name="productSize"
+                                    rules={[{ required: true, message: 'Please select a package size' }]}
+                                >
+                                    <Select
+                                        placeholder="Select Your Package Size"
+                                        options={predefinedOptions}
+                                        dropdownRender={(menu) => (
+                                            <div>
+                                                {menu}
+                                                <Divider style={{ margin: '8px 0' }} />
+                                                <span style={{ margin: '8px 4px' }}>Others</span>
+                                                <div style={{ padding: '8px' }}>
+                                                    <div style={{ marginBottom: '8px' }}>
+                                                        <span>Package Dimensions</span>
+                                                        <Radio.Group
+                                                            value={unit}
+                                                            onChange={(e) => setUnit(e.target.value)}
+                                                            style={{ marginLeft: '16px' }}
+                                                        >
+                                                            <Radio.Button value="cm">cm</Radio.Button>
+                                                            <Radio.Button value="in">In</Radio.Button>
+                                                        </Radio.Group>
+                                                    </div>
+                                                    <Space>
+                                                        <Input
+                                                            placeholder="L"
+                                                            value={customDimensions.length}
+                                                            onChange={(e) =>
+                                                                handleCustomInput('length', e.target.value)
+                                                            }
+                                                            style={{ width: 60 }}
+                                                        />
+                                                        <Input
+                                                            placeholder="B"
+                                                            value={customDimensions.breadth}
+                                                            onChange={(e) =>
+                                                                handleCustomInput('breadth', e.target.value)
+                                                            }
+                                                            style={{ width: 60 }}
+                                                        />
+                                                        <Input
+                                                            placeholder="H"
+                                                            value={customDimensions.height}
+                                                            onChange={(e) =>
+                                                                handleCustomInput('height', e.target.value)
+                                                            }
+                                                            style={{ width: 60 }}
+                                                        />
+                                                    </Space>
+                                                    <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center' }}>
+                                                        <Input
+                                                            placeholder="Enter Package Weight"
+                                                            value={weight}
+                                                            onChange={(e) => setWeight(e.target.value)}
+                                                            addonAfter="Kgs"
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                        <Button
+                                                            type="text"
+                                                            icon={<PlusOutlined />}
+                                                            onClick={() => { addCustomPackage(); document.activeElement.blur(); }}
+                                                            style={{ marginLeft: '8px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    label="Package Content"
+                                    name="packageContent"
+                                    rules={[{ required: true, message: 'Please select package content' }]}
+                                >
+                                    <Select
+                                        placeholder="Select Your Package Content"
+                                        options={packageContentOptions}
+                                        dropdownRender={(menu) => (
+                                            <div>
+                                                {menu}
+                                                <Divider style={{ margin: '8px 0' }} />
+                                                <span style={{ margin: '8px 4px' }}>Others</span>
+                                                <Space style={{ padding: '0 8px 4px' }}>
+                                                    <Input
+                                                        placeholder="Specify Package Content"
+                                                        value={packageContent}
+                                                        onChange={(e) => setPackageContent(e.target.value)}
+                                                    />
+                                                    <Button
+                                                        type="text"
+                                                        icon={<PlusOutlined />}
+                                                        onClick={() => {
+                                                            addPackageContent();
+                                                            document.activeElement.blur();
+                                                        }}
+                                                    />
+                                                </Space>
+                                            </div>
+                                        )}
+                                        onDropdownVisibleChange={(open) => {
+                                            if (!open) setPackageContent(''); // Clear the input field when dropdown closes
+                                        }}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    label="Quantity"
+                                    name="productQuantity"
+                                    initialValue={1}
+                                    rules={[{ required: true, message: 'Enter Quantity' }]}
+                                >
+                                    <InputNumber min={1} placeholder="Quantity" style={{ width: '100%' }} />
+                                </Form.Item>
+                            </div>
+                            <div className="flex justify-end mt-4">
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    icon={<Plus className="w-4 h-4" />}
+                                >
+                                    Add to Cart
+                                </Button>
+                            </div>
+                        </Form>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                        <div className="flex items-center mb-4">
+                            <ShoppingCart className="mr-2 text-orange-500" />
+                            <h2 className="text-lg font-semibold">Checkout Page</h2>
+                        </div>
+                        {/* <Table columns={columns} dataSource={items} pagination={false} /> */}
+
+                        <Table<DataType>
+                            components={components}
+                            rowClassName={() => 'editable-row'}
+                            bordered
+                            dataSource={items}
+                            columns={columns as ColumnTypes}
+                            summary={() => (
+                                <Table.Summary>
+                                    <Table.Summary.Row>
+                                        <Table.Summary.Cell index={0} colSpan={4}>Total</Table.Summary.Cell>
+                                        <Table.Summary.Cell index={1}>{totalQty}</Table.Summary.Cell>
+                                        <Table.Summary.Cell index={2}>{totalProductValue}/-</Table.Summary.Cell>
+                                        <Table.Summary.Cell index={3}>{totalTransportCharges}/-</Table.Summary.Cell>
+                                        <Table.Summary.Cell index={4}>{totalhubGoCharges}/-</Table.Summary.Cell>
+                                    </Table.Summary.Row>
+                                </Table.Summary>
+                            )}
+                        />
+
+
+                        <div className="mt-6 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-medium mb-2">Payment Collection</h3>
+                                <Radio.Group defaultValue="PREPAID" onChange={(e) => setPaymentMethod(e.target.value)}>
+                                    <Radio value="PREPAID">Prepaid</Radio>
+                                    <Radio value="COD">Cash on delivery (COD)</Radio>
+                                </Radio.Group>
+                            </div>
+
+                            <div className="text-right">
+                                <p className="mb-2">Total Amount: ₹{100}/-</p>
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    className="bg-orange-500"
+                                    disabled={items.length === 0}
+                                    onClick={handleBooking}
+                                >
+                                    Confirm Booking
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Content>
+        </Spin>
+    );
+}
+
+export default Bookings;
+
+import React, { useState, useEffect } from 'react';
+import { Input, Button, Card, Timeline, Typography, notification, Tag, Divider, Spin } from 'antd';
+import { SearchOutlined, PhoneTwoTone, BoxPlotOutlined } from '@ant-design/icons';
+import { getData } from '../service/AppService';
+
+const { Title, Text } = Typography;
+
+const TrackOrder: React.FC = () => {
+  const [searchText, setSearchText] = useState('');
+  const [trackingDetails, setTrackingDetails] = useState<any>(null);
+  const [spin, setSpin]= useState(false);
+
+  const searchOrder = (trackingId: string) => {
+    setSpin(true);
+    getData(`/api/booking/track-details?orderId=${trackingId}`)
+      .then((res: any) => {
+        const shipment = res.shipmentTrackingDetails;
+        const packages = res.shipmentProductDetails || [];
+
+        let history = [];
+        if (shipment.transportBooked) history.push({ status: 'BOOKED', timestamp: shipment.transportBooked, description: 'Order booked' });
+        if (shipment.transportHubReached) history.push({ status: 'TRANSPORT_HUB_REACHED', timestamp: shipment.transportHubReached, description: 'Arrived at transport hub' });
+        if (shipment.transportHubPickup) history.push({ status: 'TRANSPORT_HUB_PICKED', timestamp: shipment.transportHubPickup, description: 'Picked up from transport hub' });
+        if (shipment.nearestHubReached) history.push({ status: 'NEAREST_HUB_PICKED', timestamp: shipment.nearestHubReached, description: 'Arrived at nearest hub' });
+        if (shipment.outForDelivery) history.push({ status: 'OUT_FOR_DELIVERY', timestamp: shipment.outForDelivery, description: 'Out for delivery' });
+        if (shipment.delivered) history.push({ status: 'DELIVERED', timestamp: shipment.delivered, description: 'Package delivered successfully' });
+
+        shipment.trackingHistory = history;
+        setTrackingDetails({ ...shipment, packages });
+
+        notification.success({
+          message: 'Order Found',
+          description: 'Tracking details loaded successfully',
+        });
+      })
+      .catch(() => {
+        notification.error({ message: 'Order Not Found', description: 'No order found with the provided tracking ID' });
+      }).finally(()=>{
+        setSpin(false);
+      })
+  };
+
+  return (
+    <Spin spinning={spin}>
+    <div className="p-6 flex flex-col items-center bg-gray-100 min-h-screen">
+      <div className="mb-6 w-full max-w-2xl">
+        <Title level={3} className="text-center">Track Your Order</Title>
+        <div className="flex gap-4 justify-center">
+          <Input
+            placeholder="Enter Tracking ID"
+            prefix={<SearchOutlined />}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 300 }}
+          />
+          <Button type="primary" onClick={() => searchOrder(searchText)}>Track</Button>
+        </div>
+      </div>
+
+      {trackingDetails && (
+        <Card title="Tracking Details" className="w-full max-w-2xl shadow-md rounded-xl p-4">
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <Text strong>Waybill ID:</Text> <Text>{trackingDetails.waybillId}</Text>
+            </div>
+            <div>
+              <Text strong>Status:</Text> <Tag color="blue">{trackingDetails.orderStatus}</Tag>
+            </div>
+            <div>
+              <Text strong>Sender:</Text> <Text>{trackingDetails.senderName}</Text>
+            </div>
+            <div>
+              <Text strong>Receiver:</Text> <Text>{trackingDetails.receiverName}</Text>
+            </div>
+            <div>
+              <Text strong>Sender Phone:</Text>
+              <PhoneTwoTone className="ml-2" />
+              <Text className="ml-2">{trackingDetails.senderMobileNo}</Text>
+            </div>
+            <div>
+              <Text strong>Receiver Phone:</Text>
+              <PhoneTwoTone className="ml-2" />
+              <Text className="ml-2">{trackingDetails.receiverMobileNo}</Text>
+            </div>
+            <div>
+              <Text strong>Delivery Address:</Text> <Text>{trackingDetails.address}</Text>
+            </div>
+          </div>
+          <Divider />
+
+          <Title level={5}>Tracking History</Title>
+          <Timeline>
+            {trackingDetails.trackingHistory.map((event: any, index: number) => (
+              <Timeline.Item key={index} color={event.status === trackingDetails.orderStatus ? 'blue' : 'gray'}>
+                <Text strong>{event.status}</Text>
+                <br />
+                <Text type="secondary">{event.description}</Text>
+                <br />
+                <Text type="secondary">@ {event.timestamp}</Text>
+              </Timeline.Item>
+            ))}
+          </Timeline>
+          <Divider />
+
+          <Title level={5}>Package Details</Title>
+          <div className="grid gap-4">
+            {trackingDetails.packages.map((pkg: any, index: number) => (
+              <Card key={index} className="bg-gray-50 p-3 rounded-md shadow-sm">
+                <div className="flex gap-4 items-center">
+                  <BoxPlotOutlined className="text-lg text-gray-600" />
+                  <div>
+                    <Text strong>Package ID:</Text> <Text>{pkg.packageId}</Text>
+                    <br />
+                    <Text strong>Type:</Text> <Text>{pkg.productType}</Text>
+                    <br />
+                    <Text strong>Size:</Text> <Text>{pkg.productSize}</Text>
+                    <br />
+                    <Text strong>Content:</Text> <Text>{pkg.productContent}</Text>
+                    <br />
+                    <Text strong>Quantity:</Text> <Text>{pkg.productQuantity}</Text>
+                    <br />
+                    <Text strong>Value:</Text> <Text>₹{pkg.productValue}</Text>
+                    <br />
+                    <Text strong>Charges:</Text> <Text>₹{pkg.transportCharges + pkg.hubgoCharges}</Text>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+    </Spin>
+  );
+};
+
+export default TrackOrder;

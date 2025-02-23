@@ -1,84 +1,34 @@
-import { Header } from 'antd/es/layout/layout'
-import { Layout, Menu, Button, Typography, Row, Col, Card, Steps, Space, Input, Form, Divider, notification } from 'antd';
-import React, { useState } from 'react'
-const { Title, Paragraph, Text, Link } = Typography;
-const { Footer: AntFooter } = Layout;
-import hubgoIcon from './hubgo.png';
+import { Button, Card, Col, Divider, Form, Input, Layout, notification, Row, Spin, Tag, Timeline, Typography } from 'antd';
+import { Header } from 'antd/es/layout/layout';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BoxPlotOutlined, PhoneOutlined, PhoneTwoTone } from '@ant-design/icons';
+import howitworks from '../components/asserts/howitworks.png';
+import Icon from '../components/asserts/hubgo.svg';
+import loginImg from '../components/asserts/login.png';
+import signupImg from '../components/asserts/signup.png';
+import whatproblem from '../components/asserts/whatproblem.png';
+import whychoose from '../components/asserts/whychooseus.png';
+import Footerr from '../home/Footer';
 import Login from '../pages/Login';
-import Signup from '../pages/Signup';
-import Auto from './autopng.png'
-import hubgocarousel from './hubgocarousel.png';
-import {Link as RouterLink }from 'react-router-dom';
-import { GiftOutlined, RocketOutlined, ClockCircleOutlined, SafetyCertificateOutlined, DollarOutlined, PhoneOutlined, CarOutlined, SmileOutlined } from '@ant-design/icons';
 import { getData, postData } from '../service/AppService';
-
-const features = [
-  {
-    icon: <ClockCircleOutlined className="text-4xl text-blue-600" />,
-    title: "Same Day Delivery",
-    description: "Get your parcels delivered on the same day they arrive at the bus terminal"
-  },
-  {
-    icon: <SafetyCertificateOutlined className="text-4xl text-blue-600" />,
-    title: "Safe & Secure",
-    description: "Your parcels are handled with utmost care and fully insured"
-  },
-  {
-    icon: <DollarOutlined className="text-4xl text-blue-600" />,
-    title: "Affordable Rates",
-    description: "Competitive pricing with no hidden charges"
-  },
-  {
-    icon: <PhoneOutlined className="text-4xl text-blue-600" />,
-    title: "24/7 Support",
-    description: "Our customer service team is always ready to help"
-  }
-];
-const steps = [
-
-  {
-    title: 'Book Delivery',
-    description: 'Book Door Delivery At Transport',
-    icon: <PhoneOutlined />
-  },  {
-    title: 'Parcel Arrives',
-    description: 'Your parcel arrives at the central bus terminal',
-    icon: <GiftOutlined />
-  },
-  {
-    title: 'We Collect',
-    description: 'Our agent picks up your parcel from the terminal',
-    icon: <CarOutlined />
-  },
-  {
-    title: 'Door Delivery',
-    description: 'Receive your parcel at your doorstep',
-    icon: <SmileOutlined />
-  }
-];
+import { Package, Truck, MapPin, Box, Clock, Phone, X } from 'lucide-react';
+import Auto from './autopng.png';
+// import Title from 'antd/es/typography/Title';
+const { Title, Text } = Typography;
 const { Search } = Input;
 
-const handleSearch = (value:any) => {
-  console.log("Search for:", value); 
-};
-const onFinish= (value:any)=>{
+
+const onFinish = (value: any) => {
   console.log(value);
 }
-const onEnquiryFinish=(value:any)=>{
- console.log(value);
-  postData('/api/inquiries', value).then((res)=>{
-    console.log(res);
 
-    notification.success({  message: 'Registration successful!',  description: 'HubGo Team will contact you soon.'});
 
-  })
-
-}
 const styles = {
   container: {
     padding: "40px",
-    backgroundColor: "#f7f7f7",
-    textAlign: "center"as const,
+    backgroundColor: "white",
+    textAlign: "center" as const,
   },
   textContent: {
     color: "#002766",
@@ -88,7 +38,7 @@ const styles = {
     fontWeight: "bold",
   },
   highlight: {
-    color: "#f57c00", // Orange for "Go"
+    color: "#f57c00",
   },
   subtitle: {
     fontSize: "18px",
@@ -103,279 +53,739 @@ const styles = {
     maxWidth: "100%",
     height: "auto",
   },
+  signup: {
+    maxWidth: "100%",
+    Padding: '20px',
+    backgroundColor: "white",
+    height: "auto",
+  },
 };
 
 export default function Homepage() {
-  const [isLogin, setIsLogin] = useState<Boolean>(false);
-  const [isSignUp, setIsSignUp] = useState<Boolean>(false);
-  const [homepage, setHomePage] = useState<Boolean>(true);
-
-
+  const [page, setPage] = useState<any>('homepage');
   const isMobileView = () => {
-    return window.innerWidth <= 768; // Adjust the breakpoint as needed
+    return window.innerWidth <= 768;
   };
+  const navigate= useNavigate();
+  const [searchText, setSearchText] = useState('');
+  
+  const [trackingDetails, setTrackingDetails] = useState<any>(null);
+  
 
+  const [inquiryForm] = Form.useForm();
+  const [loading, setLoading] = useState<boolean>(false);
+  useEffect(() => {
+    setLoading(false);
+    const res = localStorage.getItem('user');
+    let userJson = JSON.parse(res || '{}');
+    if(userJson?.roles && localStorage.getItem('jwtToken')){
+      navigate('/dashboard');
+
+
+    }
+  },[]);
+    const handleSearch = (trackingId: string) => {
+      if(trackingId){
+      setLoading(true);
+      getData(`/api/booking/track-details?orderId=${trackingId}`)
+        .then((res: any) => {
+          setTrackingDetails(res);
+      
+  
+          notification.success({
+            message: 'Order Found',
+            description: 'Tracking details loaded successfully',
+          });
+        })
+        .catch(() => {
+          notification.error({ message: 'Order Not Found', description: 'No order found with the provided tracking ID' });
+        }).finally(()=>{
+          setLoading(false);
+        })
+      }
+    };
+    const clearResults = () => {
+      setTrackingDetails(null);
+    };
+  
+
+  const onEnquiryFinish = (value: any) => {
+    setLoading(true);
+    console.log(value);
+
+    postData("/api/inquiries", value).then((res) => {
+        inquiryForm.resetFields();
+        notification.success({
+          message: "Registration successful!",
+          description: "HubGo Team will contact you soon.",
+        });
+      })
+      .catch((err) => {
+        notification.error({
+          message: "Registration failed!",
+          description: "Please Call HubGo.",
+        });
+      })
+      .finally(() => {
+        setLoading(false); 
+      });
+  };
+  const SpinnerVal = (val: boolean) => {
+    console.log(val);
+    console.log(val);
+    setLoading(val);
+  }
   return (
     <Layout>
       <Header className="bg-white shadow-sm fixed w-full z-10 flex justify-between items-center px-8">
         <div className="flex items-center">
-          
+
           <img
-            src={hubgoIcon}
+            src={Icon}
             alt="HUBGO"
-            className="h-14"
-            style={{ marginRight: '16px' }} onClick={()=>{setIsSignUp(false);setIsLogin(false);setHomePage(true)}}
+            className={isMobileView() ? 'h-6' : 'h-10'}
+
+            onClick={() => { setPage('homepage') }}
           />
-  
+
         </div>
         <div className="flex gap-4">
-          <Button type="text" onClick={() => window.open(`tel:+917402015542`, '_self')}>Contact Us</Button>
+
           <Button type="text" onClick={() => {
-            setIsLogin(true); setHomePage(false); setIsSignUp(false);
+            setPage('login');
           }}>Login</Button>
-          <Button type="primary" onClick={() => {
-            setIsSignUp(true); setHomePage(false); setIsLogin(false);
-          }}>Grow with Us</Button>
+          <Button type="primary" onClick={() => { setPage('signup'); }}>Register</Button>
 
         </div>
       </Header>
-      <Layout.Content style={{background:'white'}}>
- 
 
-        {homepage && !isMobileView() &&
-          <div style={styles.container}>
-          <Row justify="center" align="middle" style={{background:'white'}}>
-          <Col xs={24} sm={24} md={12}>
-              <img
-                src={Auto}
-                alt="HubGo Delivery"
-                style={styles.image}
-              />
-            </Col>
-            <Col xs={24} sm={24} md={12}>
-              <div style={styles.textContent}>
-                <h1 style={styles.title}>
-                  HUB<span style={styles.highlight}>GO</span>, YOUR INTRA-CITY DELIVERY EXPERT
-                </h1>
-                <p style={styles.subtitle}>Delivering to your door step</p>
-                <Search
-                  placeholder="Enter tracking number"
-                  allowClear
-                  enterButton="Track Now"
-                  size="large"
-                  onSearch={handleSearch}
-                  style={styles.searchBox}
-                />
-              </div>
-            </Col>      
-          </Row>
-        </div>}
-        {homepage && isMobileView() &&
-          <div style={styles.container}>
-          <Row justify="center" align="middle" style={{background:'white'}}>
-          <Col xs={24} sm={24} md={12}>
-              <img
-                src={Auto}
-                alt="HubGo Delivery"
-                style={styles.image}
-              />
-            </Col>
-            <Col xs={24} sm={24} md={12}>
-              <div style={styles.textContent}>
-                <h1 style={styles.title}>
-                  HUB<span style={styles.highlight}>GO</span>, YOUR INTRA-CITY DELIVERY EXPERT
-                </h1>
-                <p style={styles.subtitle}>Delivering to your door step</p>
-                <Search
-                  placeholder="Enter tracking number"
-                  allowClear
-                  enterButton="Track Now"
-                  size="large"
-                  onSearch={handleSearch}
-                  style={styles.searchBox}
-                />
-              </div>
-            </Col>      
-          </Row>
-        </div>}
+      <Layout.Content style={{ background: 'white' }}>
+        <Spin spinning={loading} size="large">
 
-        {isMobileView() && isSignUp &&
-          <div >
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
-            <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
-                <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
-                <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
-        
+
+          {page == 'homepage' && !isMobileView() &&
+            <div style={styles.container}>
+              <Row justify="center" align="middle" style={{ background: 'white' }}>
+                <Col xs={24} sm={24} md={12}>
+                  <img
+                    src={Auto}
+                    alt="HubGo Delivery"
+                    style={styles.image}
+                  />
+                </Col>
+                <Col xs={24} sm={24} md={12}>
+                  <div style={styles.textContent}>
+                    <h1 style={styles.title}>
+                      HUB<span style={styles.highlight}>GO</span>, YOUR INTRA-CITY DELIVERY EXPERT
+                    </h1>
+                    <p style={styles.subtitle}>Delivering to your door step</p>
+                    <Search
+                      placeholder="Enter tracking number"
+                      allowClear
+                      enterButton="Track Now"
+                      size="large"
+                      onSearch={handleSearch}
+                      style={styles.searchBox}
+                    />
+                  </div>
+                </Col>
+              </Row>
+              {trackingDetails && <div className="min-h-screen bg-gray-50">
+
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {trackingDetails && (
+          <div className="space-y-8 relative">
+            {/* Close Button */}
+            <button
+              onClick={clearResults}
+              className="absolute -top-2 -right-2 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+              aria-label="Close tracking results"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+
+            {/* Order Summary */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Package className="h-6 w-6 text-orange-500" />
+                Order Summary
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Box className="h-5 w-5 text-gray-400" />
+                    <span className="text-gray-600">Order ID:</span>
+                    <span className="font-semibold">{trackingDetails.orderId}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                    <span className="text-gray-600">Waybill:</span>
+                    <span className="font-semibold">{trackingDetails.shipmentTrackingDetails.waybillId}</span>
+                  </div>
+                </div>
+
+                {/* Sender Details */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-700">Sender Details</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.senderName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.senderMobileNo || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Receiver Details */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-700">Receiver Details</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.receiverName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.receiverMobileNo || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Clock className="h-6 w-6 text-orange-500" />
+                Tracking Timeline
+              </h3>
+              <div className="relative">
+                <div className="absolute left-8 top-0 h-full w-0.5 bg-gray-200"></div>
+                <div className="space-y-8">
+                  {trackingDetails.shipmentTrackingDetails.transportBooked && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Order Booked</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.transportBooked).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {trackingDetails.shipmentTrackingDetails.inTransit && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Departed at Transport Hub</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.inTransit).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+     
+
+                  {trackingDetails.shipmentTrackingDetails.outForDelivery && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Out for Delivery</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.outForDelivery).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {trackingDetails.shipmentTrackingDetails.delivered && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Delivered</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.delivered).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Package Details */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Box className="h-6 w-6 text-orange-500" />
+                Package Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {trackingDetails.shipmentProductDetails.map((pkg: any, index: number) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-100 hover:border-orange-200 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-orange-100 rounded-lg">
+                        <Box className="h-6 w-6 text-orange-500" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{pkg.packageId}</h4>
+                            <p className="text-sm text-gray-500">{pkg.productContent || 'N/A'}</p>
+                          </div>
+                          <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            {pkg.productSize}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-500">Weight</p>
+                            <p className="font-medium">{pkg.productWeight} kg</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Quantity</p>
+                            <p className="font-medium">{pkg.productQuantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Value</p>
+                            <p className="font-medium">{pkg.productValue ? `₹${pkg.productValue}` : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Charges</p>
+                            <p className="font-medium">
+                              {pkg.transportCharges && pkg.hubgoCharges 
+                                ? `₹${pkg.transportCharges + pkg.hubgoCharges}`
+                                : 'N/A'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>}
+            </div>}
+          {page == 'homepage' && isMobileView() &&
+            <div style={styles.container}>
+              <Row justify="center" align="middle" style={{ background: 'white' }}>
+                <Col xs={24} sm={24} md={12}>
+                  <img
+                    src={Auto}
+                    alt="HubGo Delivery"
+                    style={styles.image}
+                  />
+                </Col>
+                <Col xs={24} sm={24} md={12}>
+                  <div style={styles.textContent}>
+                    <h1 style={styles.title}>
+                      HUB<span style={styles.highlight}>GO</span>, YOUR INTRA-CITY DELIVERY EXPERT
+                    </h1>
+                    <p style={styles.subtitle}>Delivering to your door step</p>
+                    <Search
+                      placeholder="Enter tracking number"
+                      allowClear
+                      enterButton="Track Now"
+                      size="large"
+                      onSearch={handleSearch}
+                      style={styles.searchBox}
+                    />
+                  </div>
+                </Col>
+              </Row>
+
+              {trackingDetails && <div className="min-h-screen bg-gray-50">
+
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {trackingDetails && (
+          <div className="space-y-8 relative">
+            {/* Close Button */}
+            <button
+              onClick={clearResults}
+              className="absolute -top-2 -right-2 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+              aria-label="Close tracking results"
+            >
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+
+            {/* Order Summary */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Package className="h-6 w-6 text-orange-500" />
+                Order Summary
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Box className="h-5 w-5 text-gray-400" />
+                    <span className="text-gray-600">Order ID:</span>
+                    <span className="font-semibold">{trackingDetails.orderId}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                    <span className="text-gray-600">Waybill:</span>
+                    <span className="font-semibold">{trackingDetails.shipmentTrackingDetails.waybillId}</span>
+                  </div>
+                </div>
+
+                {/* Sender Details */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-700">Sender Details</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.senderName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.senderMobileNo || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Receiver Details */}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-700">Receiver Details</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.receiverName || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{trackingDetails.shipmentTrackingDetails.receiverMobileNo || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Clock className="h-6 w-6 text-orange-500" />
+                Tracking Timeline
+              </h3>
+              <div className="relative">
+                <div className="absolute left-8 top-0 h-full w-0.5 bg-gray-200"></div>
+                <div className="space-y-8">
+                  {trackingDetails.shipmentTrackingDetails.transportBooked && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Order Booked</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.transportBooked).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {trackingDetails.shipmentTrackingDetails.inTransit && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">In Transit</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.inTransit).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+          
+
+                  {trackingDetails.shipmentTrackingDetails.outForDelivery && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Out for Delivery</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.outForDelivery).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {trackingDetails.shipmentTrackingDetails.delivered && (
+                    <div className="flex items-start">
+                      <div className="flex items-center justify-center w-16">
+                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Delivered</h3>
+                        <p className="text-sm text-gray-500">
+                          {new Date(trackingDetails.shipmentTrackingDetails.delivered).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Package Details */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                <Box className="h-6 w-6 text-orange-500" />
+                Package Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {trackingDetails.shipmentProductDetails.map((pkg: any, index: number) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-6 border border-gray-100 hover:border-orange-200 transition-colors">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-orange-100 rounded-lg">
+                        <Box className="h-6 w-6 text-orange-500" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{pkg.packageId}</h4>
+                            <p className="text-sm text-gray-500">{pkg.productContent || 'N/A'}</p>
+                          </div>
+                          <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                            {pkg.productSize}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-500">Weight</p>
+                            <p className="font-medium">{pkg.productWeight} kg</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Quantity</p>
+                            <p className="font-medium">{pkg.productQuantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Value</p>
+                            <p className="font-medium">{pkg.productValue ? `₹${pkg.productValue}` : 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Charges</p>
+                            <p className="font-medium">
+                              {pkg.transportCharges && pkg.hubgoCharges 
+                                ? `₹${pkg.transportCharges + pkg.hubgoCharges}`
+                                : 'N/A'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>}
+            </div>}
+
+
+
+          {isMobileView() && page == 'signup' &&
+            <div >
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'white' }}>
+                <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
+                  <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
+                  <Form  form={inquiryForm} name="signup" onFinish={onEnquiryFinish} layout="vertical">
+
                     <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
-                        <Input placeholder="Enter your name" />
+                      <Input placeholder="Enter your name" />
                     </Form.Item>
                     <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
-                        <Input placeholder="Enter your email" type='email' />
+                      <Input placeholder="Enter your email" type='email' />
                     </Form.Item>
-                    <Form.Item name="contactName" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!',}]}>
-                        <Input
-                            prefix={<PhoneOutlined />}
-                            placeholder="Enter your phone number"
-                            style={{ width: '100%' }}
-                        />
+                    <Form.Item name="phoneNumber" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!', }]}>
+                      <Input
+                        prefix={<PhoneOutlined />}
+                        placeholder="Enter your phone number"
+                        style={{ width: '100%' }}
+                      />
                     </Form.Item>
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" block>Register</Button>
+                      <Button type="primary" htmlType="submit" block>Register</Button>
                     </Form.Item>
-                </Form>
-            </div>
-        </div>
-
-          </div>}
-        {isMobileView() && isLogin && <div>
-
-
-          <Login></Login>
-        </div>}
-
-
-        {(isSignUp || isLogin) && !isMobileView() &&
-          <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-center h-screen" style={{ marginLeft: '35px', marginTop: '23px' }}>
-            <div className="lg:w-1/2 space-y-6">
-              <h1 className="text-4xl font-bold">Welcome to HubGo</h1>
-              <p className="text-lg text-gray-600 max-w-xl">
-                We provide last mile delivery services for bus terminal parcels.
-              </p>
-              <Space>
-                <Button type="primary" size="large" icon={<RocketOutlined />}>
-                  Book Delivery Now
-                </Button>
-                <Button size="large">Track Your Parcel</Button>
-              </Space>
-            </div>
-            <div className="lg:w-1/2 mt-8 lg:mt-0">
-              {isLogin ? (
-                <Login />
-              ) : (
-                <div >
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f0f2f5' }}>
-                <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
-                    <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
-                    <Form name="signup" onFinish={onEnquiryFinish} layout="vertical">
-            
-                        <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
-                            <Input placeholder="Enter your name" />
-                        </Form.Item>
-                        <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
-                            <Input placeholder="Enter your email" type='email' />
-                        </Form.Item>
-                        <Form.Item name="contactName" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!',}]}>
-                            <Input
-                                prefix={<PhoneOutlined />}
-                                placeholder="Enter your phone number"
-                                style={{ width: '100%' }}
-                            />
-                        </Form.Item>
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit" block>Register</Button>
-                        </Form.Item>
-                    </Form>
+                  </Form>
                 </div>
-            </div>
-    
               </div>
-              )}
+
+            </div>}
+          {isMobileView() && page == 'login' && <div style={{ background: 'white' }}>
+            <br />       <br />
+            <br />
+
+
+
+            <Login Spinner={SpinnerVal} />
+            <br />
+            <br />
+          </div>}
+
+
+
+          {page == 'login' && !isMobileView() &&
+            <div style={{ marginLeft: '35px', marginTop: '7%' }}>
+
+
+              <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-around' }}>
+                <div >
+                  <Title
+                    level={1}
+                    style={{
+                      color: '#1a365d',
+                      fontSize: '22px',
+
+                    }}
+                  >
+                    <span style={{ color: '#1a365d' }}>
+                      Turn Last-Mile Delivery Problems Into
+                    </span>
+                    <span style={{ color: '#f97316' }}> Opportunities</span>
+                  </Title>
+                  <Text
+                    style={{
+                      color: '#4a5568',
+                      fontSize: '16px',
+
+                      display: 'block',
+                    }}
+                  >
+                    High costs, delays, and unhappy customers are symptoms of a broken
+                    system.
+                    <br />
+                    Let us help you build a better one.
+                  </Text>
+
+
+                  <img
+                    src={loginImg}
+                    alt="HubGo Delivery"
+
+                  />
+                </div>
+                <div>  <Login Spinner={SpinnerVal} /></div>``
+
+
+              </div>
+
+
             </div>
-          </div>
+          }
+
+          {page == 'signup' && !isMobileView() &&
+            <div style={{ marginTop: '7%', display: 'flex', flexDirection: 'row', justifyContent: 'space-around' }}>
+
+
+              <div>
+                <div style={{ marginLeft: '5%' }} >
+                  <Title level={1} style={{ color: '#1a365d', fontSize: '22px', }}>
+                    <span style={{ color: '#1a365d' }}>
+                      Struggling With Last-Mile Delivery?
+                    </span>
+                    <span style={{ color: '#f97316' }}> We Get It!</span>
+                  </Title>
+                  <Text style={{ color: '#4a5568', fontSize: '16px', display: 'block', }}>
+                    From delayed shipments to high costs, last-mile delivery is full of challenges.
+                    <br />
+                    We're here to change that!
+                  </Text>
+                </div>
+
+                <div>
+                  <div style={{ marginLeft: '10%' }}>
+                    <img
+                      src={signupImg}
+                      alt="HubGo Delivery"
+                      style={{ maxWidth: '100%', height: '55vh' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+
+              <div >
+                <div style={{ display: 'flex', justifyContent: 'center', background: 'white' }}>
+                  <div style={{ padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.2)', width: 300 }}>
+                    <Title level={3} style={{ textAlign: 'center' }}>Register</Title>
+                    <Form  form={inquiryForm}  name="signup" onFinish={onEnquiryFinish} layout="vertical">
+
+                      <Form.Item name="businessName" label="Business Name" rules={[{ required: true, message: 'Please enter your Business name!' }]}>
+                        <Input placeholder="Enter your name" />
+                      </Form.Item>
+                      <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Please enter your email!' }]}>
+                        <Input placeholder="Enter your email" type='email' />
+                      </Form.Item>
+                      <Form.Item name="phoneNumber" label="Phone Number" rules={[{ required: true, message: 'Please enter your phone number!', }]}>
+                        <Input
+                          prefix={<PhoneOutlined />}
+                          placeholder="Enter your phone number"
+                          style={{ width: '100%' }}
+                        />
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" block>Register</Button>
+                      </Form.Item>
+                    </Form>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          }
 
 
 
-        }
+          {page == 'homepage' ?
+            <>
+              <Row style={{ background: 'white' }}>
 
-
-        <div className="py-20 bg-white">
-          <div className="container mx-auto px-4">
-            <Title level={2} className="text-center mb-12">
-              Why Choose HubGo
-            </Title>
-            <Row gutter={[32, 32]}>
-              {features.map((feature, index) => (
-                <Col xs={24} sm={12} lg={6} key={index}>
-                  <Card className="text-center h-full hover:shadow-lg transition-shadow">
-                    <div className="mb-4">{feature.icon}</div>
-                    <Title level={4}>{feature.title}</Title>
-                    <Text className="text-gray-600">{feature.description}</Text>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-          </div>
-        </div>
-        <div className="py-20 bg-gray-50">
-          <div className="container mx-auto px-4">
-            <Title level={2} className="text-center mb-12">
-              How It Works
-            </Title>
-            <Steps
-              items={steps}
-              className="max-w-4xl mx-auto"
-              progressDot
-            />
-          </div>
-        </div>
-        <div className="py-20 bg-blue-600">
-          <div className="container mx-auto px-4 text-center">
-            <Title level={2} className="!text-white mb-6">
-              Ready to Get Started?
-            </Title>
-            <Paragraph className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-              Experience hassle-free parcel delivery from bus terminal to your doorstep.
-              Join thousands of satisfied customers today!
-            </Paragraph>
-
-          </div>
-        </div>
-      </Layout.Content>
-      <AntFooter className="bg-gray-900 text-gray-300">
-        <div className="container mx-auto px-4">
-          <Row gutter={[32, 32]} className="py-12">
-            <Col xs={24} sm={12} lg={8}>
-              <Space className="mb-4">
                 <img
-                  src={hubgoIcon}
-                  alt="HUBGO"
-                  className="h-14"
-                  style={{ marginRight: '16px' }}
+                  src={howitworks}
+                  alt="HubGo Delivery"
+                  style={{ height: '10%', width: '100%', padding: "0px 4%" }}
                 />
-              </Space>
-              <Text className="block mb-4" style={{ color: 'white' }}>
-                Making last-mile delivery seamless and convenient for everyone.
-              </Text>
-            </Col>
-            <Col xs={24} sm={12} lg={4} style={{ color: 'white' }}>
-              <Title level={5} className="!text-white">Company</Title>
-              <Space direction="vertical">
-                <Link className="text-gray-300">About Us</Link>
-                <Link className="text-gray-300">Careers</Link>
-                <Link className="text-gray-300">Contact</Link>
-              </Space>
-            </Col>
-            <Col xs={24} sm={12} lg={4} style={{ color: 'white' }}>
-              <Title level={5} className="!text-white">Services</Title>
-              <Space direction="vertical">
-                <Link className="text-gray-300">Delivery</Link>
-                <Link className="text-gray-300">Tracking</Link>
-                <Link className="text-gray-300">Pricing</Link>
-              </Space>
-            </Col>
-            <Col xs={24} sm={12} lg={8}>
-              <Title level={5} className="!text-white">Contact Us</Title>
-              <Text className="block" style={{ color: 'white' }}>Email: hubgochennai@gmail.com</Text>
-              <Text className="block" style={{ color: 'white' }}>Phone: (91)7402015542</Text>
-            </Col>
-          </Row>
-          <div className="border-t border-gray-800 pt-8 pb-4 text-center">
-            <Text className="text-gray-400">
-              © 2025 HubGo. All rights reserved.
-            </Text>
-          </div>
-        </div>
-      </AntFooter>
+
+              </Row>
+              <Row style={{ background: 'white' }}>
+
+                <img
+                  src={whatproblem}
+                  alt="HubGo Delivery"
+                  style={{ height: '10%', width: '100%', padding: "0px 4%" }}
+
+                />
+
+              </Row>
+              <Row style={{ background: 'white' }}>
+
+                <img
+                  src={whychoose}
+                  alt="HubGo Delivery"
+                  style={{ height: '10%', width: '100%', padding: "0px 15%" }}
+
+                />
+
+              </Row>
+            </> : <></>}
+
+        </Spin>
+      </Layout.Content>
+
+      <br />
+      <br />
+      <Footerr />
     </Layout>
   )
 }
